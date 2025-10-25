@@ -15,7 +15,7 @@ namespace Spotify_Playlist_Manager.Models
         private static string RefreshToken;
         private static string Uri = "http://127.0.0.1:5543/callback";
         private static int port = 5543;
-        private static DateTime Expires = DateTime.MaxValue;
+        private static DateTime Expires = DateTime.MinValue;
         private static EmbedIOAuthServer _server;
         //set up the module
         public static void Init(string ck, string cs, string at = "", string rt = "")
@@ -38,10 +38,11 @@ namespace Spotify_Playlist_Manager.Models
         {
             if (string.IsNullOrEmpty(RefreshToken) || string.IsNullOrEmpty(AccessToken))
             {
-                var (accessToken, refreshToken) = await AuthenticateFlowAsync(ClientID, ClientSecret);
+                var (accessToken, refreshToken, expiresAt) = await AuthenticateFlowAsync(ClientID, ClientSecret);
 
                 AccessToken = accessToken;
                 RefreshToken = refreshToken;
+                Expires = expiresAt;
             }
             else
             {
@@ -93,12 +94,12 @@ namespace Spotify_Playlist_Manager.Models
         }
 
 
-        public static async Task<(string accessToken, string refreshToken)> AuthenticateFlowAsync(string clientId, string clientSecret)
+        public static async Task<(string accessToken, string refreshToken, DateTime expiresAt)> AuthenticateFlowAsync(string clientId, string clientSecret)
         {
             _server = new EmbedIOAuthServer(new Uri(Uri), port);
             await _server.Start();
 
-            var tcs = new TaskCompletionSource<(string, string)>();
+            var tcs = new TaskCompletionSource<(string, string, DateTime)>();
 
             _server.AuthorizationCodeReceived += async (sender, response) =>
             {
@@ -109,7 +110,8 @@ namespace Spotify_Playlist_Manager.Models
                     new AuthorizationCodeTokenRequest(clientId, clientSecret, response.Code, new Uri(Uri))
                 );
 
-                tcs.SetResult((tokenResponse.AccessToken, tokenResponse.RefreshToken));
+                var expiresAt = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
+                tcs.SetResult((tokenResponse.AccessToken, tokenResponse.RefreshToken, expiresAt));
             };
 
             _server.ErrorReceived += async (sender, error, state) =>
