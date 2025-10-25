@@ -14,54 +14,67 @@ namespace Spotify_Playlist_Manager.Models
     static class SpotifyWorker
     {
         /// <summary>
-        /// The Spotify application client ID.
+        /// The Spotify application client ID. This is a unique identifier for your application.
+        /// It is provided by Spotify when you register your application in the Spotify Developer Dashboard.
         /// </summary>
         private static string ClientID;
 
         /// <summary>
-        /// The Spotify application client secret.
+        /// The Spotify application client secret. This is a secret key that is used to authenticate your application.
+        /// It is provided by Spotify when you register your application in the Spotify Developer Dashboard.
+        /// Keep this secret confidential.
         /// </summary>
         private static string ClientSecret;
 
         /// <summary>
-        /// The access token obtained from Spotify.
+        /// The access token obtained from Spotify after a successful authentication.
+        /// This token is used to make authorized requests to the Spotify API.
+        /// It has a limited lifetime and needs to be refreshed periodically.
         /// </summary>
         private static string AccessToken;
 
         /// <summary>
-        /// The refresh token obtained from Spotify, used to get a new access token.
+        /// The refresh token obtained from Spotify after a successful authentication.
+        /// This token is used to obtain a new access token when the current one expires,
+        /// without requiring the user to go through the authentication flow again.
         /// </summary>
         private static string RefreshToken;
 
         /// <summary>
-        /// The redirect URI for the OAuth flow.
+        /// The redirect URI that Spotify will use to send the authorization code back to the application
+        /// after the user has granted permission. This must match one of the redirect URIs
+        /// configured in your Spotify application settings.
         /// </summary>
         private static string Uri = "http://127.0.0.1:5543/callback";
 
         /// <summary>
-        /// The port for the local server used in the OAuth flow.
+        /// The port number on which the local server will listen for the OAuth callback.
+        /// This port must be available and should match the port specified in the redirect URI.
         /// </summary>
         private static int port = 5543;
 
         /// <summary>
-        /// The expiration date and time of the access token.
+        /// The date and time when the current access token expires.
+        /// This is used to determine if the access token needs to be refreshed.
         /// </summary>
         private static DateTime Expires = DateTime.MinValue;
 
         /// <summary>
-        /// The server that listens for the OAuth callback.
+        /// The embedded web server instance that listens for the OAuth callback from Spotify.
+        /// This server is used to capture the authorization code during the authentication flow.
         /// </summary>
         private static EmbedIOAuthServer _server;
 
         /// <summary>
-        /// Initializes the SpotifyWorker with necessary credentials.
-        /// This method should be called before any other methods in this class.
+        /// Initializes the SpotifyWorker with the necessary credentials. This method must be called
+        /// before any other methods in this class to ensure that the client ID and client secret are set up correctly.
+        /// It also allows for providing existing access and refresh tokens to avoid re-authentication.
         /// </summary>
-        /// <param name="ck">The client key (ID) for your Spotify application.</param>
-        /// <param name="cs">The client secret for your Spotify application.</param>
-        /// <param name="at">An optional existing access token.</param>
-        /// <param name="rt">An optional existing refresh token.</param>
-        /// <param name="e">An optional expiration date for the existing access token.</param>
+        /// <param name="ck">The client key (ID) for your Spotify application. This is a public identifier.</param>
+        /// <param name="cs">The client secret for your Spotify application. This is a confidential key.</param>
+        /// <param name="at">An optional existing access token. If provided, this token will be used for API requests.</param>
+        /// <param name="rt">An optional existing refresh token. If provided, this token will be used to refresh the access token when it expires.</param>
+        /// <param name="e">An optional expiration date for the existing access token. This helps in determining if the token needs to be refreshed.</param>
         public static void Init(string ck, string cs, string at = "", string rt = "", DateTime e = new DateTime())
         {
             ClientID = ck;
@@ -83,11 +96,12 @@ namespace Spotify_Playlist_Manager.Models
         }
 
         /// <summary>
-        /// Authenticates the user with Spotify.
-        /// If a refresh token is available, it will try to refresh the access token.
-        /// Otherwise, it will start the full OAuth 2.0 authentication flow.
+        /// Authenticates the user with Spotify. This is the main entry point for starting the authentication process.
+        /// If a valid refresh token is available, it will attempt to refresh the access token silently.
+        /// Otherwise, it will initiate the full OAuth 2.0 authentication flow, which may require user interaction
+        /// (i.e., opening a browser window for the user to log in and grant permissions).
         /// </summary>
-        /// <returns>A tuple containing the access token and refresh token.</returns>
+        /// <returns>A tuple containing the new access token and refresh token upon successful authentication.</returns>
         public static async Task<(string AccessToken, string RefreshToken)> AuthenticateAsync()
         {
             if (string.IsNullOrEmpty(RefreshToken) || string.IsNullOrEmpty(AccessToken))
@@ -118,14 +132,17 @@ namespace Spotify_Playlist_Manager.Models
 
         /// <summary>
         /// Refreshes the access token if it is expired or about to expire.
+        /// This method is called internally by `AuthenticateAsync` but can also be used directly
+        /// if you need to manually manage token refreshing. It checks the expiration time of the
+        /// current token and, if it's close to expiring, requests a new one using the refresh token.
         /// </summary>
         /// <param name="clientId">The Spotify application client ID.</param>
         /// <param name="clientSecret">The Spotify application client secret.</param>
         /// <param name="accessToken">The current access token.</param>
         /// <param name="refreshToken">The refresh token.</param>
         /// <param name="expiresAtUtc">The UTC expiration time of the current access token.</param>
-        /// <param name="refreshThreshold">The time before expiration to refresh the token. Defaults to 5 minutes.</param>
-        /// <returns>A tuple containing the new access token, refresh token, and new expiration time.</returns>
+        /// <param name="refreshThreshold">The time before expiration to refresh the token. If the token is within this timespan of expiring, it will be refreshed. Defaults to 5 minutes.</param>
+        /// <returns>A tuple containing the new access token, the (possibly updated) refresh token, and the new expiration time.</returns>
         public static async Task<(string accessToken, string refreshToken, DateTime expiresAt)> RefreshTokensIfNeededAsync(
             string clientId,
             string clientSecret,
@@ -139,21 +156,22 @@ namespace Spotify_Playlist_Manager.Models
 
             if (expiresAtUtc == DateTime.MinValue)
             {
-                // Token expiration is unknown, force a refresh
+                // Token expiration is unknown, so we must force a refresh to be safe.
             }
             else if (DateTime.UtcNow < expiresAtUtc - threshold)
             {
-                // Token is still valid — no need to refresh
+                // Token is still valid and not close to expiring, so no need to refresh.
                 return (accessToken, refreshToken, expiresAtUtc);
             }
 
-            // Token is expired or about to expire — refresh it
+            // Token is expired or about to expire, so we need to refresh it.
             var config = SpotifyClientConfig.CreateDefault();
             var tokenResponse = await new OAuthClient(config).RequestToken(
                 new AuthorizationCodeRefreshRequest(clientId, clientSecret, refreshToken)
             );
 
             var newAccessToken = tokenResponse.AccessToken;
+            // A new refresh token is not always returned. If it's null, we keep the old one.
             var newRefreshToken = tokenResponse.RefreshToken ?? refreshToken;
             var newExpiresAt = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
 
@@ -161,46 +179,59 @@ namespace Spotify_Playlist_Manager.Models
         }
 
         /// <summary>
-        /// Performs the full OAuth 2.0 authorization code flow.
-        /// It starts a local server to listen for the callback from Spotify,
-        /// opens a browser for the user to authorize the application,
-        /// and exchanges the authorization code for an access token and refresh token.
+        /// Performs the full OAuth 2.0 authorization code flow. This method should be used when
+        /// no valid refresh token is available. It starts a local server to listen for the callback from Spotify,
+        /// opens a browser window for the user to authorize the application, and then exchanges the
+        /// authorization code received from Spotify for an access token and a refresh token.
         /// </summary>
         /// <param name="clientId">The Spotify application client ID.</param>
         /// <param name="clientSecret">The Spotify application client secret.</param>
-        /// <returns>A tuple containing the access token, refresh token, and expiration time.</returns>
+        /// <returns>A tuple containing the newly obtained access token, refresh token, and the expiration time of the access token.</returns>
         public static async Task<(string accessToken, string refreshToken, DateTime expiresAt)> AuthenticateFlowAsync(string clientId, string clientSecret)
         {
+            // Start a local server to listen for the callback.
             _server = new EmbedIOAuthServer(new Uri(Uri), port);
             await _server.Start();
 
             var tcs = new TaskCompletionSource<(string, string, DateTime)>();
 
+            // Event handler for when the authorization code is received.
             _server.AuthorizationCodeReceived += async (sender, response) =>
             {
+                // Stop the server as it's no longer needed.
                 await _server.Stop();
 
+                // Exchange the authorization code for an access token and refresh token.
                 var config = SpotifyClientConfig.CreateDefault();
                 var tokenResponse = await new OAuthClient(config).RequestToken(
                     new AuthorizationCodeTokenRequest(clientId, clientSecret, response.Code, new Uri(Uri))
                 );
 
+                // Calculate the expiration time of the new access token.
                 var expiresAt = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
+                // Set the result of the TaskCompletionSource to signal that the flow is complete.
                 tcs.SetResult((tokenResponse.AccessToken, tokenResponse.RefreshToken, expiresAt));
             };
 
+
+
+            // Event handler for any errors that occur during the authentication flow.
             _server.ErrorReceived += async (sender, error, state) =>
             {
+                // Stop the server and set an exception on the TaskCompletionSource.
                 await _server.Stop();
                 tcs.SetException(new Exception($"Spotify auth error: {error}"));
             };
 
+            // Create the login request and open the user's browser to the Spotify authorization page.
             var request = new LoginRequest(_server.BaseUri, clientId, LoginRequest.ResponseType.Code)
             {
-                Scope = new List<string> { Scopes.UserReadEmail }
+                // Define the scopes (permissions) that the application is requesting.
+                Scope = new List<string> { Scopes.UserReadEmail, Scopes.PlaylistModifyPrivate, Scopes.PlaylistModifyPublic, Scopes.PlaylistReadCollaborative, Scopes.PlaylistReadPrivate, Scopes.UserLibraryRead, Scopes.UserLibraryModify, Scopes.UserReadPrivate }
             };
             BrowserUtil.Open(request.ToUri());
 
+            // Wait for the TaskCompletionSource to be completed (either with a result or an exception).
             return await tcs.Task;
         }
 
