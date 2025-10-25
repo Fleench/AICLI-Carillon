@@ -18,7 +18,7 @@ namespace Spotify_Playlist_Manager.Models
         private static DateTime Expires = DateTime.MinValue;
         private static EmbedIOAuthServer _server;
         //set up the module
-        public static void Init(string ck, string cs, string at = "", string rt = "")
+        public static void Init(string ck, string cs, string at = "", string rt = "", DateTime e = new DateTime())
         {
             ClientID = ck;
             ClientSecret = cs;
@@ -30,6 +30,11 @@ namespace Spotify_Playlist_Manager.Models
             if (rt != "")
             {
                 RefreshToken = rt;
+            }
+
+            if (e != DateTime.MinValue)
+            {
+                Expires = e;
             }
         }
 
@@ -74,7 +79,11 @@ namespace Spotify_Playlist_Manager.Models
             // Default to refreshing if token expires within the next 5 minutes
             var threshold = refreshThreshold ?? TimeSpan.FromMinutes(5);
 
-            if (DateTime.UtcNow < expiresAtUtc - threshold)
+            if (expiresAtUtc == DateTime.MinValue)
+            {
+                // Token expiration is unknown, force a refresh
+            }
+            else if (DateTime.UtcNow < expiresAtUtc - threshold)
             {
                 // Token is still valid — no need to refresh
                 return (accessToken, refreshToken, expiresAtUtc);
