@@ -3,6 +3,7 @@ using SpotifyAPI.Web;
 using SpotifyAPI.Web.Auth;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Spotify_Playlist_Manager.Models
@@ -17,6 +18,7 @@ namespace Spotify_Playlist_Manager.Models
         private static int port = 5543;
         private static DateTime Expires = DateTime.MinValue;
         private static EmbedIOAuthServer _server;
+        private static SpotifyClient spotify;
         //set up the module
         public static void Init(string ck, string cs, string at = "", string rt = "", DateTime e = new DateTime())
         {
@@ -63,12 +65,12 @@ namespace Spotify_Playlist_Manager.Models
                 RefreshToken = refreshToken;
                 Expires = expiresAt;
             }
-
+            spotify = new SpotifyClient(AccessToken);
             return (AccessToken, RefreshToken);
         }
 
         //refresh if needed
-        public static async Task<(string accessToken, string refreshToken, DateTime expiresAt)> RefreshTokensIfNeededAsync(
+        private static async Task<(string accessToken, string refreshToken, DateTime expiresAt)> RefreshTokensIfNeededAsync(
             string clientId,
             string clientSecret,
             string accessToken,
@@ -103,7 +105,7 @@ namespace Spotify_Playlist_Manager.Models
         }
 
 
-        public static async Task<(string accessToken, string refreshToken, DateTime expiresAt)> AuthenticateFlowAsync(string clientId, string clientSecret)
+        private static async Task<(string accessToken, string refreshToken, DateTime expiresAt)> AuthenticateFlowAsync(string clientId, string clientSecret)
         {
             _server = new EmbedIOAuthServer(new Uri(Uri), port);
             await _server.Start();
@@ -131,12 +133,101 @@ namespace Spotify_Playlist_Manager.Models
 
             var request = new LoginRequest(_server.BaseUri, clientId, LoginRequest.ResponseType.Code)
             {
-                Scope = new List<string> { Scopes.UserReadEmail }
+                Scope = new List<string>
+                {
+                    Scopes.UserReadEmail,
+                    Scopes.PlaylistReadPrivate,
+                    Scopes.PlaylistReadCollaborative,
+                    Scopes.PlaylistModifyPrivate,
+                    Scopes.PlaylistModifyPublic,
+                    Scopes.UserLibraryRead,
+                    Scopes.UserLibraryModify
+                }
+
             };
             BrowserUtil.Open(request.ToUri());
 
             return await tcs.Task;
         }
+        //saved tracks
+        
+        public static async IAsyncEnumerable<SimpleLikedTrack> GetLikedSongsAsync()
+        {
+            // Request the first page (50 is Spotify’s max page size)
+            var page = await spotify.Library.GetTracks(new LibraryTracksRequest { Limit = 50 });
+
+            int totalCount = 0;
+
+            while (page != null && page.Items.Count > 0)
+            {
+                foreach (var item in page.Items)
+                {
+                    var track = item.Track;
+
+                    if (track == null)
+                        continue;
+
+                    totalCount++;
+
+                    yield return new SimpleLikedTrack
+                    {
+                        Id = track.Id,
+                        Name = track.Name,
+                        Artists = string.Join(", ", track.Artists.Select(a => a.Name))
+                    };
+                }
+
+                // Move to next page
+                try
+                {
+                    page = await spotify.NextPage(page);
+                }
+                catch
+                {
+                    break;
+                }
+                
+            }
+
+            //Console.WriteLine($"Total liked tracks: {totalCount}");
+        }
+
+        public class SimpleLikedTrack
+        {
+            public string Id { get; set; } = string.Empty;
+            public string Name { get; set; } = string.Empty;
+            public string Artists { get; set; } = string.Empty;
+        }
+
+        //user playlists
+        public static async IAsyncEnumerable<SimplePlaylist> GetUserPlaylistsAsync()
+        {
+            var firstPage = await spotify.Playlists.CurrentUsers();
+            //Console.WriteLine($"Got first page: {firstPage.Items.Count} playlists, next: {firstPage.Next}");
+
+            int page = 1;
+            await foreach (var playlist in spotify.Paginate(firstPage))
+            {
+                //Console.WriteLine($"Yielding from page {page}: {playlist.Name}");
+                yield return new SimplePlaylist
+                {
+                    Id = playlist.Id,
+                    Name = playlist.Name,
+                    TrackCount = playlist.Tracks?.Total ?? 0
+                };
+                if (playlist == firstPage.Items.LastOrDefault())
+                    page++;
+            }
+        }
+
+
+        public class SimplePlaylist
+        {
+            public string Id { get; set; }
+            public string Name { get; set; }
+            public int TrackCount { get; set; }
+        }
+
 
     }
 }
