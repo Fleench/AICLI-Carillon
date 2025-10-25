@@ -32,6 +32,19 @@ public class TempProgram
         var (at,rt) = await SpotifyWorker.AuthenticateAsync();
         FileHelper.ModifySpecificLine(myFile, 2, at);
         FileHelper.ModifySpecificLine(myFile, 3, rt);
-        //Console.WriteLine(FileHelper.ReadAllLines(myFile));
-    }
+        Console.WriteLine("YO WE DONE with AUTHENTICATED!");
+        int i = 0;
+        await foreach (var song in SpotifyWorker.GetLikedSongsAsync())
+        {
+            Console.WriteLine($"Name: {song.Id}");
+            if (i >= 20)
+            {
+                break;
+            }
+
+            i++;
+        }
+
+    }    
 }
+
