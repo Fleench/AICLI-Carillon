@@ -4,46 +4,113 @@ The `SpotifyWorker` is a static class responsible for handling the authenticatio
 
 ## Purpose
 
-The main purpose of the `SpotifyWorker` is to abstract the complexity of the Spotify authentication process. It provides a simple way to authenticate the user and get the access and refresh tokens required to make calls to the Spotify API.
+The main purpose of the `SpotifyWorker` is to abstract the complexity of the Spotify authentication process. It provides a simple way to authenticate the user and get the access and refresh tokens required to make calls to the Spotify API. It also handles token refreshing automatically.
 
 ## Authentication Flow
 
-The `SpotifyWorker` implements the Authorization Code Flow, which is the recommended OAuth 2.0 flow for applications that can securely store a client secret. The flow is as follows:
+The `SpotifyWorker` implements the Authorization Code Flow with PKCE, which is the recommended OAuth 2.0 flow for applications that can securely store a client secret. The flow is as follows:
 
-1.  The application requests authorization from the user.
-2.  The user is redirected to the Spotify website to log in and grant permission to the application.
-3.  After the user grants permission, Spotify redirects the user back to the application with an authorization code.
-4.  The application exchanges the authorization code for an access token and a refresh token.
-5.  The access token is used to make requests to the Spotify API.
-6.  When the access token expires, the refresh token is used to get a new access token without requiring the user to log in again.
-
-The `SpotifyWorker` handles this flow by:
-
-*   Starting a local server to listen for the callback from Spotify.
-*   Opening a browser for the user to authorize the application.
-*   Exchanging the authorization code for an access token and a refresh token.
-*   Storing the access token, refresh token, and expiration date.
-*   Refreshing the access token when it's about to expire.
+1.  **Initialization**: The `SpotifyWorker` is initialized with your Spotify application's credentials. You can also provide existing access and refresh tokens if you have them.
+2.  **Authentication**: When `AuthenticateAsync` is called, the `SpotifyWorker` checks if it has a valid refresh token.
+    *   **Token Refresh**: If a valid refresh token exists, the `SpotifyWorker` will attempt to use it to get a new access token from Spotify without requiring user interaction. This is a silent process.
+    *   **Full Authentication**: If there is no valid refresh token, the `SpotifyWorker` will start the full authentication flow:
+        1.  It starts a local server to listen for a callback from Spotify.
+        2.  It opens a browser window and directs the user to the Spotify login and authorization page.
+        3.  After the user grants permission, Spotify redirects them back to the local server with an authorization code.
+        4.  The `SpotifyWorker` exchanges this code for an access token and a refresh token.
+3.  **Token Management**: The `SpotifyWorker` stores the tokens and will automatically refresh the access token when it's about to expire.
 
 ## How to Use
 
-To use the `SpotifyWorker`, you first need to initialize it with your Spotify application's client ID and client secret. This is done by calling the `Init` method:
+To use the `SpotifyWorker`, you first need to initialize it with your Spotify application's client ID and client secret. You can also provide existing tokens if you have them stored from a previous session.
+
+### 1. Initialization
+
+Call the `Init` method at the start of your application.
 
 ```csharp
-SpotifyWorker.Init("YOUR_CLIENT_ID", "YOUR_CLIENT_SECRET");
+// Your Spotify application credentials
+string clientId = "YOUR_CLIENT_ID";
+string clientSecret = "YOUR_CLIENT_SECRET";
+
+// Previously stored tokens (if available)
+string storedAccessToken = ""; // Load from storage if you have it
+string storedRefreshToken = ""; // Load from storage if you have it
+
+// Initialize the SpotifyWorker
+SpotifyWorker.Init(clientId, clientSecret, storedAccessToken, storedRefreshToken);
 ```
 
-After initializing the `SpotifyWorker`, you can authenticate the user by calling the `AuthenticateAsync` method:
+### 2. Authentication
+
+After initialization, call the `AuthenticateAsync` method to get the access and refresh tokens.
 
 ```csharp
-var (accessToken, refreshToken) = await SpotifyWorker.AuthenticateAsync();
+// This will either refresh the token or start the full authentication flow
+var (newAccessToken, newRefreshToken) = await SpotifyWorker.AuthenticateAsync();
+
+// It's important to store the new tokens for future sessions
+// For example, you could save them to a file:
+FileHelper.ModifySpecificLine("settings.txt", 2, newAccessToken);
+FileHelper.ModifySpecificLine("settings.txt", 3, newRefreshToken);
+
 ```
 
-This method will either start the full authentication flow or refresh the access token if a valid refresh token is available. It returns a tuple containing the access token and the refresh token.
+### 3. Using the Spotify API
 
-You can then use the access token to create a `SpotifyClient` and make requests to the Spotify API:
+Once you have the access token, you can use it to create a `SpotifyClient` and make requests to the Spotify API.
 
 ```csharp
-var spotify = new SpotifyClient(accessToken);
+var spotify = new SpotifyClient(newAccessToken);
+
+// Example: Get the current user's profile
 var user = await spotify.UserProfile.Current();
+Console.WriteLine($"Welcome, {user.DisplayName}!");
+```
+
+### Complete Example
+
+Here is a complete example of how you might use the `SpotifyWorker` in a console application:
+
+```csharp
+using System;
+using System.Threading.Tasks;
+using Spotify_Playlist_Manager.Models;
+using Spotify_Playlist_Manager.Models.txt; // For FileHelper
+
+public class ExampleProgram
+{
+    static async Task Main(string[] args)
+    {
+        string settingsFile = "settings.txt";
+        string clientId = "YOUR_CLIENT_ID";
+        string clientSecret = "YOUR_CLIENT_SECRET";
+
+        // Read stored tokens from a file
+        string token = FileHelper.ReadSpecificLine(settingsFile, 2) ?? "";
+        string refreshToken = FileHelper.ReadSpecificLine(settingsFile, 3) ?? "";
+
+        // Initialize the SpotifyWorker
+        SpotifyWorker.Init(clientId, clientSecret, token, refreshToken);
+
+        try
+        {
+            // Authenticate and get the latest tokens
+            var (newAccessToken, newRefreshToken) = await SpotifyWorker.AuthenticateAsync();
+
+            // Save the new tokens for the next session
+            FileHelper.ModifySpecificLine(settingsFile, 2, newAccessToken);
+            FileHelper.ModifySpecificLine(settingsFile, 3, newRefreshToken);
+
+            // Create a SpotifyClient and make an API call
+            var spotify = new SpotifyClient(newAccessToken);
+            var user = await spotify.UserProfile.Current();
+            Console.WriteLine($"Successfully authenticated as {user.DisplayName}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Authentication failed: {ex.Message}");
+        }
+    }
+}
 ```
