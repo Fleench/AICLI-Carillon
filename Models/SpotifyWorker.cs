@@ -62,6 +62,8 @@ namespace Spotify_Playlist_Manager.Models
         /// </summary>
         private static EmbedIOAuthServer _server;
 
+        private static SpotifyClient spotify;
+
         /// <summary>
         /// Initializes the SpotifyWorker with the necessary credentials. This method must be called
         /// before any other methods in this class to ensure that the client ID and client secret are set up correctly.
