@@ -34,11 +34,11 @@ public class TempProgram
         FileHelper.ModifySpecificLine(myFile, 2, at);
         FileHelper.ModifySpecificLine(myFile, 3, rt);
         Console.WriteLine("YO WE DONE with AUTHENTICATED!");
-        await foreach (var item in SpotifyWorker.GetUserPlaylistsAsync())
+        await foreach (var item in SpotifyWorker.GetLikedSongsAsync())
         {
-            if (item.Name.ToLower().Contains("".ToLower()))
+            if (item.Artists.ToLower().Contains(";;".ToLower()))
             {
-                Console.WriteLine(item.Name);
+                Console.WriteLine(item.Artists);
             }
         }
 
