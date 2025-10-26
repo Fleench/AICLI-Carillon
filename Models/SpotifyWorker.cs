@@ -257,7 +257,7 @@ namespace Spotify_Playlist_Manager.Models
                     {
                         Id = track.Id,
                         Name = track.Name,
-                        Artists = string.Join(", ", track.Artists.Select(a => a.Name))
+                        Artists = string.Join(";;", track.Artists.Select(a => a.Name))
                     };
                 }
 
@@ -278,9 +278,9 @@ namespace Spotify_Playlist_Manager.Models
 
         public class SimpleLikedTrack
         {
-            public string Id { get; set; } = string.Empty;
-            public string Name { get; set; } = string.Empty;
-            public string Artists { get; set; } = string.Empty;
+            public required string Id { get; set; }
+            public required string Name { get; set; }
+            public required string Artists { get; set; }
         }
 
         //user playlists
@@ -318,9 +318,9 @@ namespace Spotify_Playlist_Manager.Models
 
         public class SimplePlaylist
         {
-            public string Id { get; set; }
-            public string Name { get; set; }
-            public int TrackCount { get; set; }
+            public required string  Id { get; set; }
+            public  required string Name { get; set; }
+            public  required int TrackCount { get; set; }
         }
 
 
