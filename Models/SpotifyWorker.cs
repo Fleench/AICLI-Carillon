@@ -378,7 +378,7 @@ namespace Spotify_Playlist_Manager.Models
                 if (item.Track is FullTrack track)
                 {
                     // All FullTrack properties are available
-                    Console.WriteLine(track.Id);
+                    //Console.WriteLine(track.Id);
                     TrackIDs += track.Id + ";;";
                 }
             }
@@ -402,7 +402,7 @@ namespace Spotify_Playlist_Manager.Models
             foreach (SimpleTrack track in album.Tracks.Items)
             {
                     // All FullTrack properties are available
-                    Console.WriteLine(track.Id);
+                    //Console.WriteLine(track.Id);
                     TrackIDs += track.Id + ";;";
             }
             foreach (SimpleArtist artist in album.Artists)
@@ -410,6 +410,13 @@ namespace Spotify_Playlist_Manager.Models
                 artistIDs += artist.Id + ";;";
             }
             return (album.Name, imageURL, album.Id,TrackIDs,artistIDs);
+        }
+        //song data
+        public static async Task<(string name, string id, string albumID, string artistIDs, int discnumber, int durrationms, bool Explicit, string previewURL, int tracknumber)> GetSongDataAsync(string id)
+        {
+            FullTrack track = await spotify.Tracks.Get(id);
+            string artistIDs = string.Join("::", track.Artists.Select(a => a.Id));; 
+            return (track.Name,track.Id,track.Album.Id,artistIDs,track.DiscNumber,track.DurationMs,track.Explicit,track.PreviewUrl,track.TrackNumber);
         }
     }
 }

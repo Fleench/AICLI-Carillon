@@ -41,6 +41,20 @@ namespace Spotify_Playlist_Manager.Models
             public string ArtistIDs;
             public string TrackIDs;
         }
+
+        public class Track
+        {
+            public string Name { get; set; }
+            public string Id { get; set; }
+            public string AlbumId { get; set; }
+            public string ArtistIds { get; set; }
+            public int DiscNumber { get; set; }
+            public int DurationMs { get; set; }
+            public bool Explicit { get; set; }
+            public string PreviewUrl { get; set; }
+            public int TrackNumber { get; set; }
+        }
+
     }
 
 }
