@@ -286,22 +286,33 @@ namespace Spotify_Playlist_Manager.Models
         //user playlists
         public static async IAsyncEnumerable<SimplePlaylist> GetUserPlaylistsAsync()
         {
-            var firstPage = await spotify.Playlists.CurrentUsers();
+            var page = await spotify.Playlists.CurrentUsers(new PlaylistCurrentUsersRequest() { Limit = 50 });
             //Console.WriteLine($"Got first page: {firstPage.Items.Count} playlists, next: {firstPage.Next}");
 
-            int page = 1;
-            await foreach (var playlist in spotify.Paginate(firstPage))
+            while (page != null && page.Items.Count > 0)
             {
-                //Console.WriteLine($"Yielding from page {page}: {playlist.Name}");
-                yield return new SimplePlaylist
+                foreach (var playlist in page.Items)
                 {
-                    Id = playlist.Id,
-                    Name = playlist.Name,
-                    TrackCount = playlist.Tracks?.Total ?? 0
-                };
-                if (playlist == firstPage.Items.LastOrDefault())
-                    page++;
+                    //Console.WriteLine($"Yielding from page {page}: {playlist.Name}");
+                    yield return new SimplePlaylist
+                    {
+                        Id = playlist.Id,
+                        Name = playlist.Name,
+                        TrackCount = playlist.Tracks?.Total ?? 0
+                    };
+                    
+                }
+                try
+                {
+                    page = await spotify.NextPage(page);
+                }
+                catch
+                {
+                    break;
+                }
+                
             }
+            
         }
 
 
