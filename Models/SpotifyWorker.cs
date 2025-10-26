@@ -235,11 +235,11 @@ namespace Spotify_Playlist_Manager.Models
         }
         //saved tracks
         
-        public static async IAsyncEnumerable<SimpleLikedTrack> GetLikedSongsAsync()
+        public static async IAsyncEnumerable<(string Id, string Name, string Artists)> GetLikedSongsAsync()
         {
             // Request the first page (50 is Spotify’s max page size)
             var page = await spotify.Library.GetTracks(new LibraryTracksRequest { Limit = 50 });
-            
+
 
             while (page != null && page.Items.Count > 0)
             {
@@ -250,12 +250,11 @@ namespace Spotify_Playlist_Manager.Models
                     if (track == null)
                         continue;
 
-                    yield return new SimpleLikedTrack
-                    {
-                        Id = track.Id,
-                        Name = track.Name,
-                        Artists = string.Join(";;", track.Artists.Select(a => a.Id))
-                    };
+                    yield return (
+                        track.Id,
+                        track.Name,
+                        string.Join(";;", track.Artists.Select(a => a.Id))
+                    );
                 }
 
                 // Move to next page
@@ -272,16 +271,8 @@ namespace Spotify_Playlist_Manager.Models
 
             //Console.WriteLine($"Total liked tracks: {totalCount}");
         }
-
-        public class SimpleLikedTrack
-        {
-            public required string Id { get; set; }
-            public required string Name { get; set; }
-            public required string Artists { get; set; }
-        }
-
         //user playlists
-        public static async IAsyncEnumerable<SimplePlaylist> GetUserPlaylistsAsync()
+        public static async IAsyncEnumerable<(string Id, string Name, int TrackCount)> GetUserPlaylistsAsync()
         {
             var page = await spotify.Playlists.CurrentUsers(new PlaylistCurrentUsersRequest() { Limit = 50 });
             //Console.WriteLine($"Got first page: {firstPage.Items.Count} playlists, next: {firstPage.Next}");
@@ -291,13 +282,12 @@ namespace Spotify_Playlist_Manager.Models
                 foreach (var playlist in page.Items)
                 {
                     //Console.WriteLine($"Yielding from page {page}: {playlist.Name}");
-                    yield return new SimplePlaylist
-                    {
-                        Id = playlist.Id,
-                        Name = playlist.Name,
-                        TrackCount = playlist.Tracks?.Total ?? 0
-                    };
-                    
+                    yield return (
+                        playlist.Id,
+                        playlist.Name,
+                        playlist.Tracks?.Total ?? 0
+                    );
+
                 }
                 try
                 {
@@ -311,16 +301,8 @@ namespace Spotify_Playlist_Manager.Models
             }
             
         }
-
-
-        public class SimplePlaylist
-        {
-            public required string  Id { get; set; }
-            public  required string Name { get; set; }
-            public  required int TrackCount { get; set; }
-        }
         //user albums
-        public static async IAsyncEnumerable<SimpleAlbum> GetUserAlbumsAsync()
+        public static async IAsyncEnumerable<(string Id, string Name, int TrackCount, string Artists)> GetUserAlbumsAsync()
         {
             var page = await spotify.Library.GetAlbums(new LibraryAlbumsRequest() { Limit = 50 });
             //Console.WriteLine($"Got first page: {firstPage.Items.Count} playlists, next: {firstPage.Next}");
@@ -330,14 +312,13 @@ namespace Spotify_Playlist_Manager.Models
                 foreach (var Album in page.Items)
                 {
                     //Console.WriteLine($"Yielding from page {page}: {playlist.Name}");
-                    yield return new SimpleAlbum
-                    {
-                        Id = Album.Album.Id,
-                        Name = Album.Album.Name,
-                        TrackCount = Album.Album.Tracks?.Total ?? 0,
-                        Artists = string.Join(";;", Album.Album.Artists.Select(a => a.Id)),
-                    };
-                    
+                    yield return (
+                        Album.Album.Id,
+                        Album.Album.Name,
+                        Album.Album.Tracks?.Total ?? 0,
+                        string.Join(";;", Album.Album.Artists.Select(a => a.Id))
+                    );
+
                 }
                 try
                 {
@@ -349,14 +330,6 @@ namespace Spotify_Playlist_Manager.Models
                 }
                 
             }
-            
-        }
-        public class SimpleAlbum
-        {
-            public required string Id { get; set; }
-            public required string Name { get; set; }
-            public required int TrackCount { get; set; }
-            public required string Artists { get; set; }
         }
         //more data
         public static async Task<(string? name, string? imageURL, string? Id, string? Description, string? SnapshotID, string? TrackIDs)> GetPlaylistDataAsync(string id)
