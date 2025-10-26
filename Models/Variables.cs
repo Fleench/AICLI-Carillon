@@ -31,6 +31,15 @@ namespace Spotify_Playlist_Manager.Models
             public string Id;
             public string Description;
             public string SnapshotID;
+            public string TrackIDs;
+        }
+        public class Album
+        {
+            public string name;
+            public string ImageURL;
+            public string Id;
+            public string ArtistIDs;
+            public string TrackIDs;
         }
     }
 

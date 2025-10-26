@@ -254,7 +254,7 @@ namespace Spotify_Playlist_Manager.Models
                     {
                         Id = track.Id,
                         Name = track.Name,
-                        Artists = string.Join(";;", track.Artists.Select(a => a.Name))
+                        Artists = string.Join(";;", track.Artists.Select(a => a.Id))
                     };
                 }
 
@@ -335,7 +335,7 @@ namespace Spotify_Playlist_Manager.Models
                         Id = Album.Album.Id,
                         Name = Album.Album.Name,
                         TrackCount = Album.Album.Tracks?.Total ?? 0,
-                        Artists = string.Join(";;", Album.Album.Artists.Select(a => a.Name)),
+                        Artists = string.Join(";;", Album.Album.Artists.Select(a => a.Id)),
                     };
                     
                 }
@@ -359,23 +359,57 @@ namespace Spotify_Playlist_Manager.Models
             public required string Artists { get; set; }
         }
         //more data
-        public static async Task GetPlaylistDataAsync(string id)
+        public static async Task<(string? name, string? imageURL, string? Id, string? Description, string? SnapshotID, string? TrackIDs)> GetPlaylistDataAsync(string id)
         {
             FullPlaylist playlist = await spotify.Playlists.Get(id);
-            Console.WriteLine(playlist.Name);
-            Console.WriteLine(playlist.Images[0].Url);
-            Console.WriteLine(playlist.Id);
-            Console.WriteLine(playlist.Description);
-            Console.WriteLine(playlist.Type);
-            Console.WriteLine(playlist.SnapshotId);
+            string TrackIDs = "";
+            string? imageURL = "";
+            try
+            {
+                 imageURL = playlist.Images[0].Url;
+            }
+            catch
+            {
+                 imageURL = "";
+            }
+            
             foreach (PlaylistTrack<IPlayableItem> item in playlist.Tracks.Items)
             {
                 if (item.Track is FullTrack track)
                 {
                     // All FullTrack properties are available
                     Console.WriteLine(track.Id);
+                    TrackIDs += track.Id + ";;";
                 }
             }
+
+            return (playlist.Name, imageURL, playlist.Id, playlist.Description, playlist.SnapshotId, TrackIDs);
+        }
+        public static async Task<(string? name, string? imageURL, string? Id, string TrackIDs,string artistIDs)> GetAlbumDataAsync(string id)
+        {
+            FullAlbum album = await spotify.Albums.Get(id);
+            string TrackIDs = "";
+            string imageURL = "";
+            string artistIDs = "";
+            try
+            {
+                imageURL = album.Images[0].Url;
+            }
+            catch
+            {
+                imageURL = "";
+            }
+            foreach (SimpleTrack track in album.Tracks.Items)
+            {
+                    // All FullTrack properties are available
+                    Console.WriteLine(track.Id);
+                    TrackIDs += track.Id + ";;";
+            }
+            foreach (SimpleArtist artist in album.Artists)
+            {
+                artistIDs += artist.Id + ";;";
+            }
+            return (album.Name, imageURL, album.Id,TrackIDs,artistIDs);
         }
     }
 }
