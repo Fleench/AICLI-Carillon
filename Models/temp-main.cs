@@ -1,5 +1,6 @@
 using Spotify_Playlist_Manager.Models.txt;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Spotify_Playlist_Manager.Models;
 public class TempProgram
@@ -33,16 +34,12 @@ public class TempProgram
         FileHelper.ModifySpecificLine(myFile, 2, at);
         FileHelper.ModifySpecificLine(myFile, 3, rt);
         Console.WriteLine("YO WE DONE with AUTHENTICATED!");
-        int i = 0;
-        await foreach (var song in SpotifyWorker.GetLikedSongsAsync())
+        await foreach (var item in SpotifyWorker.GetUserPlaylistsAsync())
         {
-            Console.WriteLine($"Name: {song.Id}");
-            if (i >= 20)
+            if (item.Name.ToLower().Contains("".ToLower()))
             {
-                break;
+                Console.WriteLine(item.Name);
             }
-
-            i++;
         }
 
     }    
