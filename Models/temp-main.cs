@@ -42,8 +42,10 @@ public class TempProgram
             break;
         }
 
-        var tup = await SpotifyWorker.GetAlbumDataAsync(localID);
-        Console.WriteLine(tup);
+        var atup = await SpotifyWorker.GetAlbumDataAsync(localID);
+        var trackIDs = atup.TrackIDs.Split(";;");
+        var ttup = await SpotifyWorker.GetSongDataAsync(trackIDs[0]);
+        Console.WriteLine(ttup);
     }    
 }
 
