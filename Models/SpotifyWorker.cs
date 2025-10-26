@@ -239,8 +239,7 @@ namespace Spotify_Playlist_Manager.Models
         {
             // Request the first page (50 is Spotify’s max page size)
             var page = await spotify.Library.GetTracks(new LibraryTracksRequest { Limit = 50 });
-
-            int totalCount = 0;
+            
 
             while (page != null && page.Items.Count > 0)
             {
@@ -250,8 +249,6 @@ namespace Spotify_Playlist_Manager.Models
 
                     if (track == null)
                         continue;
-
-                    totalCount++;
 
                     yield return new SimpleLikedTrack
                     {
@@ -322,7 +319,63 @@ namespace Spotify_Playlist_Manager.Models
             public  required string Name { get; set; }
             public  required int TrackCount { get; set; }
         }
+        //user albums
+        public static async IAsyncEnumerable<SimpleAlbum> GetUserAlbumsAsync()
+        {
+            var page = await spotify.Library.GetAlbums(new LibraryAlbumsRequest() { Limit = 50 });
+            //Console.WriteLine($"Got first page: {firstPage.Items.Count} playlists, next: {firstPage.Next}");
 
-
+            while (page != null && page.Items.Count > 0)
+            {
+                foreach (var Album in page.Items)
+                {
+                    //Console.WriteLine($"Yielding from page {page}: {playlist.Name}");
+                    yield return new SimpleAlbum
+                    {
+                        Id = Album.Album.Id,
+                        Name = Album.Album.Name,
+                        TrackCount = Album.Album.Tracks?.Total ?? 0,
+                        Artists = string.Join(";;", Album.Album.Artists.Select(a => a.Name)),
+                    };
+                    
+                }
+                try
+                {
+                    page = await spotify.NextPage(page);
+                }
+                catch
+                {
+                    break;
+                }
+                
+            }
+            
+        }
+        public class SimpleAlbum
+        {
+            public required string Id { get; set; }
+            public required string Name { get; set; }
+            public required int TrackCount { get; set; }
+            public required string Artists { get; set; }
+        }
+        //more data
+        public static async Task GetPlaylistDataAsync(string id)
+        {
+            FullPlaylist playlist = await spotify.Playlists.Get(id);
+            Console.WriteLine(playlist.Name);
+            Console.WriteLine(playlist.Images[0].Url);
+            Console.WriteLine(playlist.Id);
+            Console.WriteLine(playlist.Description);
+            Console.WriteLine(playlist.Type);
+            Console.WriteLine(playlist.SnapshotId);
+            foreach (PlaylistTrack<IPlayableItem> item in playlist.Tracks.Items)
+            {
+                if (item.Track is FullTrack track)
+                {
+                    // All FullTrack properties are available
+                    Console.WriteLine(track.Id);
+                }
+            }
+        }
     }
 }
