@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Spotify_Playlist_Manager.Models;
 using System.Collections.Concurrent;
 using System.Threading;
+
 public class TempProgram
 {
     static async Task Main(string[] args)
@@ -23,6 +24,7 @@ public class TempProgram
         FileHelper.ModifySpecificLine(myFile,2,"null"); //token
         FileHelper.ModifySpecificLine(myFile,3,"null"); //refresh token
         */
+
         string clientID = FileHelper.ReadSpecificLine(myFile, 4);
         if (clientID == "" || clientID == null)
         {
@@ -30,145 +32,245 @@ public class TempProgram
             clientID = Console.ReadLine();
         }
 
-        string  clientSecret = FileHelper.ReadSpecificLine(myFile, 1);;
-        
-        if(clientSecret == "" || clientSecret == null)
+        string clientSecret = FileHelper.ReadSpecificLine(myFile, 1);
+        ;
+
+        if (clientSecret == "" || clientSecret == null)
         {
             Console.WriteLine("Could not read settings.txt file for ClientSecret");
             clientSecret = Console.ReadLine();
-            
+
         }
+
         string token = "";
         string refreshToken = "";
         if (FileHelper.ReadSpecificLine(myFile, 2) != "null")
         {
             token = FileHelper.ReadSpecificLine(myFile, 2);
         }
-        if (FileHelper.ReadSpecificLine(myFile, 3) != "null") 
+
+        if (FileHelper.ReadSpecificLine(myFile, 3) != "null")
         {
             refreshToken = FileHelper.ReadSpecificLine(myFile, 3);
         }
+
         SpotifyWorker.Init(clientID, clientSecret, token, refreshToken);
-        var (at,rt) = await SpotifyWorker.AuthenticateAsync();
+        var (at, rt) = await SpotifyWorker.AuthenticateAsync();
         FileHelper.ModifySpecificLine(myFile, 4, clientID);
-        FileHelper.ModifySpecificLine(myFile,1, clientSecret);
+        FileHelper.ModifySpecificLine(myFile, 1, clientSecret);
         FileHelper.ModifySpecificLine(myFile, 2, at);
         FileHelper.ModifySpecificLine(myFile, 3, rt);
         Console.WriteLine("YO WE DONE with AUTHENTICATED!");
-        //HOW MANY SONGS I GOT
+        // HOW MANY SONGS I GOT
         /*
         string localID = "";
-        List<string> trackIDs = [];
+        HashSet<string> trackIDs = new(); // ensures uniqueness
         int trackcounter = 0;
-        int change = 0;
+
         await foreach (var item in SpotifyWorker.GetUserPlaylistsAsync())
         {
-            trackIDs.AddRange(SpotifyWorker.GetPlaylistDataAsync(item.Id).Result.TrackIDs.Split(";;"));
-            change = trackIDs.Count - trackcounter;
-            for (int i = 0; i <= change; i++)
+            var ids = SpotifyWorker.GetPlaylistDataAsync(item.Id).Result.TrackIDs.Split(";;");
+            foreach (var id in ids)
             {
-                trackcounter++;
-                Console.Write($"\r Tracks Found: {trackcounter}");
+                if (trackIDs.Add(id)) // only true if new ID added
+                {
+                    trackcounter++;
+                    Console.Write($"\r Tracks Found: {trackcounter}");
+                }
             }
-            
         }
+
         await foreach (var item in SpotifyWorker.GetUserAlbumsAsync())
         {
-            trackIDs.AddRange(SpotifyWorker.GetAlbumDataAsync(item.Id).Result.TrackIDs.Split(";;"));
-            change = trackIDs.Count - trackcounter;
-            for (int i = 0; i <= change; i++)
+            var ids = SpotifyWorker.GetAlbumDataAsync(item.Id).Result.TrackIDs.Split(";;");
+            foreach (var id in ids)
             {
-                trackcounter++;
-                Console.Write($"\r Tracks Found: {trackcounter}");
+                if (trackIDs.Add(id))
+                {
+                    trackcounter++;
+                    Console.Write($"\r Tracks Found: {trackcounter}");
+                }
             }
         }
 
         await foreach (var item in SpotifyWorker.GetLikedSongsAsync())
         {
-            trackIDs.Add(item.Id);
-            trackcounter++;
-            Console.Write($"\r Tracks Found: {trackcounter}");
+            if (trackIDs.Add(item.Id))
+            {
+                trackcounter++;
+                Console.Write($"\r Tracks Found: {trackcounter}");
+            }
         }
 
-        var uniqueTrackIDs = trackIDs.Distinct().ToList();
-        Console.WriteLine($"\n\rYou have {uniqueTrackIDs.Count} unique tracks from a pulled list of {trackIDs.Count} tracks.");
+        trackIDs.Remove("");
+        Console.WriteLine("");
+        HashSet<string> albumIDs = new();
+        int albumcounter = 0;
+        foreach (var track in trackIDs)
+        {
+            if (albumIDs.Add(SpotifyWorker.GetSongDataAsync(track).Result.albumID))
+            {
+                albumcounter++;
+                Console.Write($"\r Albums Found: {albumcounter}");
+            }
+        }
+        HashSet<string> artistIDs = new();
+        Console.WriteLine("");
+        int artistcounter = 0;
+        foreach (var track in trackIDs)
+        {
+            string[] data = SpotifyWorker.GetSongDataAsync(track).Result.artistIDs.Split(";;");
+            foreach (var artist in data)
+            {
+                if (albumIDs.Add(artist))
+                {
+                    artistcounter++;
+                    Console.Write($"\r Artists Found: {artistcounter}");
+                }
+            }
+        }
+        Console.WriteLine($"{trackcounter} tracks found from {albumcounter} albums by {artistcounter} artists");
         */
+        // ---- CONFIG ----
+        int maxConcurrentCalls = 6; // Hard limit (change if needed)
+        var semaphore = new SemaphoreSlim(maxConcurrentCalls);
+        const int maxRetries = 5;   // Retry limit for transient errors
 
+        // ---- STEP 1: COLLECT ALL TRACK IDS ----
+        var trackIDs = new HashSet<string>();
+        int trackcounter = 0;
 
-// adjustable concurrency (Spotify seems happy at 8–10)
-const int MAX_CONCURRENT_REQUESTS = 8;
-
-var trackIDs = new ConcurrentBag<string>();
-int trackCounter = 0;
-var semaphore = new SemaphoreSlim(MAX_CONCURRENT_REQUESTS);
-
-// --- Helper method for progress-safe increment ---
-void PrintProgress()
-{
-    Console.Write($"\rTracks Found: {trackCounter}");
-}
-
-// --- Playlists ---
-var playlistTasks = new List<Task>();
-await foreach (var playlist in SpotifyWorker.GetUserPlaylistsAsync())
-{
-    await semaphore.WaitAsync();
-    playlistTasks.Add(Task.Run(async () =>
-    {
-        try
+        Console.WriteLine("Collecting all track IDs...\n");
+        
+        await foreach (var item in SpotifyWorker.GetUserPlaylistsAsync())
         {
-            var data = await SpotifyWorker.GetPlaylistDataAsync(playlist.Id);
-            foreach (var id in data.TrackIDs.Split(";;", StringSplitOptions.RemoveEmptyEntries))
+            try
             {
-                trackIDs.Add(id);
-                Interlocked.Increment(ref trackCounter);
-                PrintProgress();
-            }
-        }
-        finally
-        {
-            semaphore.Release();
-        }
-    }));
-}
-await Task.WhenAll(playlistTasks);
+                var ids = SpotifyWorker.GetPlaylistDataAsync(item.Id).Result.TrackIDs.Split(";;");
+                foreach (var id in ids)
+                    if (trackIDs.Add(id))
+                        trackcounter++;
 
-// --- Albums ---
-var albumTasks = new List<Task>();
-await foreach (var album in SpotifyWorker.GetUserAlbumsAsync())
-{
-    await semaphore.WaitAsync();
-    albumTasks.Add(Task.Run(async () =>
-    {
-        try
-        {
-            var data = await SpotifyWorker.GetAlbumDataAsync(album.Id);
-            foreach (var id in data.TrackIDs.Split(";;", StringSplitOptions.RemoveEmptyEntries))
+                Console.Write($"\rTracks Found: {trackcounter}");
+            }
+            catch
             {
-                trackIDs.Add(id);
-                Interlocked.Increment(ref trackCounter);
-                PrintProgress();
+                
             }
+            
         }
-        finally
+
+        await foreach (var item in SpotifyWorker.GetUserAlbumsAsync())
         {
-            semaphore.Release();
+            try
+            {
+
+            }
+            catch
+            {
+                var ids = SpotifyWorker.GetAlbumDataAsync(item.Id).Result.TrackIDs.Split(";;");
+                foreach (var id in ids)
+                    if (trackIDs.Add(id))
+                        trackcounter++;
+
+                Console.Write($"\rTracks Found: {trackcounter}");
+            }
+            
         }
-    }));
-}
-await Task.WhenAll(albumTasks);
 
-// --- Liked Songs (sequential, already rate-safe) ---
-await foreach (var song in SpotifyWorker.GetLikedSongsAsync())
-{
-    trackIDs.Add(song.Id);
-    Interlocked.Increment(ref trackCounter);
-    PrintProgress();
-}
+        await foreach (var item in SpotifyWorker.GetLikedSongsAsync())
+        {
+            try
+            {
 
-// --- Deduplicate ---
-var uniqueTrackIDs = trackIDs.Distinct().ToList();
-Console.WriteLine($"\nYou have {uniqueTrackIDs.Count} unique tracks from a pulled list of {trackIDs.Count} total tracks.");
+            }
+            catch
+            {
+                if (trackIDs.Add(item.Id))
+                    trackcounter++;
 
-    }    
+                Console.Write($"\rTracks Found: {trackcounter}"); 
+            }
+            
+        }
+
+        trackIDs.Remove("");
+        Console.WriteLine($"\n\nTotal unique tracks collected: {trackIDs.Count}\n");
+
+        // ---- STEP 2: FETCH SONG METADATA CONCURRENTLY ----
+        var songData = new ConcurrentDictionary<string, (string AlbumID, string[] ArtistIDs)>();
+        int completed = 0;
+
+        Console.WriteLine($"Fetching song metadata (max {maxConcurrentCalls} concurrent calls)...\n");
+
+        var tasks = trackIDs.Select(async id =>
+        {
+            await semaphore.WaitAsync();
+            try
+            {
+                int retryCount = 0;
+                while (true)
+                {
+                    try
+                    {
+                        var data = await SpotifyWorker.GetSongDataAsync(id);
+                        songData[id] = (data.albumID, data.artistIDs.Split(";;"));
+                        int done = Interlocked.Increment(ref completed);
+
+                        if (done % 25 == 0)
+                            Console.Write($"\rSongs Processed: {done}/{trackIDs.Count}");
+                        break; // Success, exit retry loop
+                    }
+                    catch (SpotifyAPI.Web.APITooManyRequestsException ex) // SpotifyAPI.Web specific
+                    {
+                        int waitTime = (int)ex.RetryAfter.TotalSeconds + 1;
+                        Console.WriteLine($"\n[429] Rate limited. Waiting {waitTime}s...");
+                        await Task.Delay(waitTime * 1000);
+                    }
+                    /*catch
+                    {
+                        retryCount++;
+                        if (retryCount > maxRetries)
+                        {
+                            Console.WriteLine($"\n[WARN] Skipping {id} after {maxRetries} failed retries (network issues).");
+                            break;
+                        }
+
+                        int waitTime = retryCount * 2; // exponential backoff
+                        Console.WriteLine($"\n[Retry] Network error fetching {id}. Waiting {waitTime}s before retry {retryCount}/{maxRetries}...");
+                        await Task.Delay(waitTime * 1000);
+                    }*/
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"\n[ERROR] {id}: {ex.Message}");
+                        break; // Skip bad data
+                    }
+                }
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
+
+        await Task.WhenAll(tasks);
+        Console.WriteLine("\nSong data fetch complete.\n");
+
+        // ---- STEP 3: COUNT ALBUMS & ARTISTS ----
+        var albumIDs = new HashSet<string>();
+        var artistIDs = new HashSet<string>();
+
+        foreach (var kv in songData.Values)
+        {
+            albumIDs.Add(kv.AlbumID);
+            foreach (var a in kv.ArtistIDs)
+                artistIDs.Add(a);
+        }
+
+        Console.WriteLine("------------------------------------");
+        Console.WriteLine($"Tracks : {trackIDs.Count}");
+        Console.WriteLine($"Albums : {albumIDs.Count}");
+        Console.WriteLine($"Artists: {artistIDs.Count}");
+        Console.WriteLine("------------------------------------\n");
+    }
 }
