@@ -51,24 +51,12 @@ public class TempProgram
         FileHelper.ModifySpecificLine(myFile, 3, rt);
         Console.WriteLine("YO WE DONE with AUTHENTICATED!");
         string localID = "";
-        await foreach (var item in SpotifyWorker.GetUserPlaylistsAsync())
+        await foreach (var item in SpotifyWorker.GetUserAlbumsAsync())
         {
             localID = item.Id;
             Console.WriteLine(item.Name);
-            break;
+            Console.WriteLine(SpotifyWorker.GetArtistDataAsync(item.Artists.Split(";;")[0]).Result);
         }
-
-        var tup = SpotifyWorker.GetPlaylistDataAsync(localID);
-        foreach (string trackID in tup.Result.TrackIDs.Split(";;"))
-        {
-            try
-            {
-                Console.WriteLine(SpotifyWorker.GetSongDataAsync(trackID).Result.name);
-            }
-            catch
-            {
-                Console.WriteLine("Could not get song data for track ID: " + trackID);
-            }
-        }
+        
     }    
 }

@@ -237,6 +237,7 @@ namespace Spotify_Playlist_Manager.Models
         
         public static async IAsyncEnumerable<(string Id, string Name, string Artists)> GetLikedSongsAsync()
         {
+            await AuthenticateAsync();
             // Request the first page (50 is Spotify’s max page size)
             var page = await spotify.Library.GetTracks(new LibraryTracksRequest { Limit = 50 });
 
@@ -274,6 +275,7 @@ namespace Spotify_Playlist_Manager.Models
         //user playlists
         public static async IAsyncEnumerable<(string Id, string Name, int TrackCount)> GetUserPlaylistsAsync()
         {
+            await AuthenticateAsync();
             var page = await spotify.Playlists.CurrentUsers(new PlaylistCurrentUsersRequest() { Limit = 50 });
             //Console.WriteLine($"Got first page: {firstPage.Items.Count} playlists, next: {firstPage.Next}");
 
@@ -304,6 +306,7 @@ namespace Spotify_Playlist_Manager.Models
         //user albums
         public static async IAsyncEnumerable<(string Id, string Name, int TrackCount, string Artists)> GetUserAlbumsAsync()
         {
+            await AuthenticateAsync();
             var page = await spotify.Library.GetAlbums(new LibraryAlbumsRequest() { Limit = 50 });
             //Console.WriteLine($"Got first page: {firstPage.Items.Count} playlists, next: {firstPage.Next}");
 
@@ -334,6 +337,7 @@ namespace Spotify_Playlist_Manager.Models
         //more data
         public static async Task<(string? name, string? imageURL, string? Id, string? Description, string? SnapshotID, string? TrackIDs)> GetPlaylistDataAsync(string id)
         {
+            await AuthenticateAsync();
             FullPlaylist playlist = await spotify.Playlists.Get(id);
             string TrackIDs = "";
             string? imageURL = "";
@@ -360,6 +364,7 @@ namespace Spotify_Playlist_Manager.Models
         }
         public static async Task<(string? name, string? imageURL, string? Id, string TrackIDs,string artistIDs)> GetAlbumDataAsync(string id)
         {
+            await AuthenticateAsync();
             FullAlbum album = await spotify.Albums.Get(id);
             string TrackIDs = "";
             string imageURL = "";
@@ -387,9 +392,30 @@ namespace Spotify_Playlist_Manager.Models
         //song data
         public static async Task<(string name, string id, string albumID, string artistIDs, int discnumber, int durrationms, bool Explicit, string previewURL, int tracknumber)> GetSongDataAsync(string id)
         {
+            await AuthenticateAsync();
             FullTrack track = await spotify.Tracks.Get(id);
             string artistIDs = string.Join("::", track.Artists.Select(a => a.Id));; 
             return (track.Name,track.Id,track.Album.Id,artistIDs,track.DiscNumber,track.DurationMs,track.Explicit,track.PreviewUrl,track.TrackNumber);
+        }
+        //artist data
+        public static async Task<(string Id, string Name, string? ImageUrl, string Genres)> GetArtistDataAsync(string id)
+        {
+            var artist = await spotify.Artists.Get(id);
+            string? imageUrl = artist.Images?.FirstOrDefault()?.Url;
+            string genres = artist.Genres != null && artist.Genres.Any()
+                ? string.Join(";;", artist.Genres)
+                : string.Empty;
+
+            return (artist.Id, artist.Name, imageUrl, genres);
+        }
+
+        //send data
+        public static async Task AddTracksToPlaylistAsync(string playlistId, List<string> trackIds)
+        {
+            await AuthenticateAsync();
+            var uris = trackIds.ConvertAll(id => $"spotify:track:{id}");
+            var request = new PlaylistAddItemsRequest(uris);
+            await spotify.Playlists.AddItems(playlistId, request);
         }
     }
 }
