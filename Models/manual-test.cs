@@ -135,6 +135,45 @@ public class TempProgram
         int maxConcurrentCalls = 6; // Hard limit (change if needed)
         var semaphore = new SemaphoreSlim(maxConcurrentCalls);
         const int maxRetries = 5;   // Retry limit for transient errors
+        const int requestPauseMs = 100; // 0.1s pause after every request to reduce rate limiting
+
+        async Task<(bool Success, T Result)> TryExecuteWithRetriesAsync<T>(Func<Task<T>> operation, string context)
+        {
+            int retryCount = 0;
+
+            while (true)
+            {
+                try
+                {
+                    var result = await operation();
+                    await Task.Delay(requestPauseMs);
+                    return (true, result);
+                }
+                catch (SpotifyAPI.Web.APITooManyRequestsException ex)
+                {
+                    int waitSeconds = Math.Max((int)Math.Ceiling(ex.RetryAfter.TotalSeconds), 1);
+                    Console.WriteLine($"\n[429] Rate limited while {context}. Waiting {waitSeconds}s...");
+                    await Task.Delay(waitSeconds * 1000);
+                }
+                catch (Exception ex)
+                {
+                    retryCount++;
+                    Console.WriteLine($"\n[ERROR] {context}: {ex.Message}");
+
+                    if (retryCount > maxRetries)
+                    {
+                        Console.WriteLine($"[WARN] Skipping {context} after {maxRetries} retries.");
+                        return (false, default!);
+                    }
+
+                    int waitSeconds = retryCount * 2; // exponential backoff
+                    Console.WriteLine($"[Retry] {context}. Waiting {waitSeconds}s before retry {retryCount}/{maxRetries}...");
+                    await Task.Delay(waitSeconds * 1000);
+                }
+
+                await Task.Delay(requestPauseMs);
+            }
+        }
 
         // ---- STEP 1: COLLECT ALL TRACK IDS ----
         var trackIDs = new HashSet<string>();
@@ -144,57 +183,58 @@ public class TempProgram
         
         await foreach (var item in SpotifyWorker.GetUserPlaylistsAsync())
         {
-            try
-            {
-                var ids = SpotifyWorker.GetPlaylistDataAsync(item.Id).Result.TrackIDs.Split(";;");
-                foreach (var id in ids)
-                    if (trackIDs.Add(id))
-                        trackcounter++;
+            var (success, playlistData) = await TryExecuteWithRetriesAsync(
+                () => SpotifyWorker.GetPlaylistDataAsync(item.Id),
+                $"fetching playlist {item.Id}");
 
-                Console.Write($"\rTracks Found: {trackcounter}");
-            }
-            catch
+            if (!success || string.IsNullOrWhiteSpace(playlistData.TrackIDs))
             {
-                
+                continue;
             }
-            
+
+            foreach (var id in playlistData.TrackIDs.Split(";;", StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (trackIDs.Add(id))
+                {
+                    trackcounter++;
+                }
+            }
+
+            Console.Write($"\rTracks Found: {trackcounter}");
         }
 
         await foreach (var item in SpotifyWorker.GetUserAlbumsAsync())
         {
-            try
-            {
+            var (success, albumData) = await TryExecuteWithRetriesAsync(
+                () => SpotifyWorker.GetAlbumDataAsync(item.Id),
+                $"fetching album {item.Id}");
 
-            }
-            catch
+            if (!success || string.IsNullOrWhiteSpace(albumData.TrackIDs))
             {
-                var ids = SpotifyWorker.GetAlbumDataAsync(item.Id).Result.TrackIDs.Split(";;");
-                foreach (var id in ids)
-                    if (trackIDs.Add(id))
-                        trackcounter++;
-
-                Console.Write($"\rTracks Found: {trackcounter}");
+                continue;
             }
-            
+
+            foreach (var id in albumData.TrackIDs.Split(";;", StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (trackIDs.Add(id))
+                {
+                    trackcounter++;
+                }
+            }
+
+            Console.Write($"\rTracks Found: {trackcounter}");
         }
 
         await foreach (var item in SpotifyWorker.GetLikedSongsAsync())
         {
-            try
+            if (trackIDs.Add(item.Id))
             {
-
+                trackcounter++;
             }
-            catch
-            {
-                if (trackIDs.Add(item.Id))
-                    trackcounter++;
 
-                Console.Write($"\rTracks Found: {trackcounter}"); 
-            }
-            
+            Console.Write($"\rTracks Found: {trackcounter}");
         }
 
-        trackIDs.Remove("");
         Console.WriteLine($"\n\nTotal unique tracks collected: {trackIDs.Count}\n");
 
         // ---- STEP 2: FETCH SONG METADATA CONCURRENTLY ----
@@ -208,44 +248,20 @@ public class TempProgram
             await semaphore.WaitAsync();
             try
             {
-                int retryCount = 0;
-                while (true)
+                var (success, data) = await TryExecuteWithRetriesAsync(
+                    () => SpotifyWorker.GetSongDataAsync(id),
+                    $"fetching song {id}");
+
+                if (!success)
                 {
-                    try
-                    {
-                        var data = await SpotifyWorker.GetSongDataAsync(id);
-                        songData[id] = (data.albumID, data.artistIDs.Split(";;"));
-                        int done = Interlocked.Increment(ref completed);
-
-                        if (done % 25 == 0)
-                            Console.Write($"\rSongs Processed: {done}/{trackIDs.Count}");
-                        break; // Success, exit retry loop
-                    }
-                    catch (SpotifyAPI.Web.APITooManyRequestsException ex) // SpotifyAPI.Web specific
-                    {
-                        int waitTime = (int)ex.RetryAfter.TotalSeconds + 1;
-                        Console.WriteLine($"\n[429] Rate limited. Waiting {waitTime}s...");
-                        await Task.Delay(waitTime * 1000);
-                    }
-                    /*catch
-                    {
-                        retryCount++;
-                        if (retryCount > maxRetries)
-                        {
-                            Console.WriteLine($"\n[WARN] Skipping {id} after {maxRetries} failed retries (network issues).");
-                            break;
-                        }
-
-                        int waitTime = retryCount * 2; // exponential backoff
-                        Console.WriteLine($"\n[Retry] Network error fetching {id}. Waiting {waitTime}s before retry {retryCount}/{maxRetries}...");
-                        await Task.Delay(waitTime * 1000);
-                    }*/
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"\n[ERROR] {id}: {ex.Message}");
-                        break; // Skip bad data
-                    }
+                    return;
                 }
+
+                songData[id] = (data.albumID, data.artistIDs.Split(";;", StringSplitOptions.RemoveEmptyEntries));
+                int done = Interlocked.Increment(ref completed);
+
+                if (done % 25 == 0)
+                    Console.Write($"\rSongs Processed: {done}/{trackIDs.Count}");
             }
             finally
             {
