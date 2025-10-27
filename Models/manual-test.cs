@@ -1,9 +1,14 @@
 using Spotify_Playlist_Manager.Models.txt;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using Spotify_Playlist_Manager.Models;
+using System.Collections.Concurrent;
+using System.Threading;
 public class TempProgram
 {
     static async Task Main(string[] args)
@@ -50,13 +55,120 @@ public class TempProgram
         FileHelper.ModifySpecificLine(myFile, 2, at);
         FileHelper.ModifySpecificLine(myFile, 3, rt);
         Console.WriteLine("YO WE DONE with AUTHENTICATED!");
+        //HOW MANY SONGS I GOT
+        /*
         string localID = "";
+        List<string> trackIDs = [];
+        int trackcounter = 0;
+        int change = 0;
+        await foreach (var item in SpotifyWorker.GetUserPlaylistsAsync())
+        {
+            trackIDs.AddRange(SpotifyWorker.GetPlaylistDataAsync(item.Id).Result.TrackIDs.Split(";;"));
+            change = trackIDs.Count - trackcounter;
+            for (int i = 0; i <= change; i++)
+            {
+                trackcounter++;
+                Console.Write($"\r Tracks Found: {trackcounter}");
+            }
+            
+        }
         await foreach (var item in SpotifyWorker.GetUserAlbumsAsync())
         {
-            localID = item.Id;
-            Console.WriteLine(item.Name);
-            Console.WriteLine(SpotifyWorker.GetArtistDataAsync(item.Artists.Split(";;")[0]).Result);
+            trackIDs.AddRange(SpotifyWorker.GetAlbumDataAsync(item.Id).Result.TrackIDs.Split(";;"));
+            change = trackIDs.Count - trackcounter;
+            for (int i = 0; i <= change; i++)
+            {
+                trackcounter++;
+                Console.Write($"\r Tracks Found: {trackcounter}");
+            }
         }
-        
+
+        await foreach (var item in SpotifyWorker.GetLikedSongsAsync())
+        {
+            trackIDs.Add(item.Id);
+            trackcounter++;
+            Console.Write($"\r Tracks Found: {trackcounter}");
+        }
+
+        var uniqueTrackIDs = trackIDs.Distinct().ToList();
+        Console.WriteLine($"\n\rYou have {uniqueTrackIDs.Count} unique tracks from a pulled list of {trackIDs.Count} tracks.");
+        */
+
+
+// adjustable concurrency (Spotify seems happy at 8–10)
+const int MAX_CONCURRENT_REQUESTS = 8;
+
+var trackIDs = new ConcurrentBag<string>();
+int trackCounter = 0;
+var semaphore = new SemaphoreSlim(MAX_CONCURRENT_REQUESTS);
+
+// --- Helper method for progress-safe increment ---
+void PrintProgress()
+{
+    Console.Write($"\rTracks Found: {trackCounter}");
+}
+
+// --- Playlists ---
+var playlistTasks = new List<Task>();
+await foreach (var playlist in SpotifyWorker.GetUserPlaylistsAsync())
+{
+    await semaphore.WaitAsync();
+    playlistTasks.Add(Task.Run(async () =>
+    {
+        try
+        {
+            var data = await SpotifyWorker.GetPlaylistDataAsync(playlist.Id);
+            foreach (var id in data.TrackIDs.Split(";;", StringSplitOptions.RemoveEmptyEntries))
+            {
+                trackIDs.Add(id);
+                Interlocked.Increment(ref trackCounter);
+                PrintProgress();
+            }
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }));
+}
+await Task.WhenAll(playlistTasks);
+
+// --- Albums ---
+var albumTasks = new List<Task>();
+await foreach (var album in SpotifyWorker.GetUserAlbumsAsync())
+{
+    await semaphore.WaitAsync();
+    albumTasks.Add(Task.Run(async () =>
+    {
+        try
+        {
+            var data = await SpotifyWorker.GetAlbumDataAsync(album.Id);
+            foreach (var id in data.TrackIDs.Split(";;", StringSplitOptions.RemoveEmptyEntries))
+            {
+                trackIDs.Add(id);
+                Interlocked.Increment(ref trackCounter);
+                PrintProgress();
+            }
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }));
+}
+await Task.WhenAll(albumTasks);
+
+// --- Liked Songs (sequential, already rate-safe) ---
+await foreach (var song in SpotifyWorker.GetLikedSongsAsync())
+{
+    trackIDs.Add(song.Id);
+    Interlocked.Increment(ref trackCounter);
+    PrintProgress();
+}
+
+// --- Deduplicate ---
+var uniqueTrackIDs = trackIDs.Distinct().ToList();
+Console.WriteLine($"\nYou have {uniqueTrackIDs.Count} unique tracks from a pulled list of {trackIDs.Count} total tracks.");
+
     }    
 }
