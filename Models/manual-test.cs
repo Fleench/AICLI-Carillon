@@ -1,3 +1,8 @@
+/* File: manual-test.cs
+ * Author: Glenn Sutherland
+ * Description: Manual testing for the Spotify Playlist Manager. This allows
+ * for the modules to tested for before they are stringed together.
+ */
 using Spotify_Playlist_Manager.Models.txt;
 using System;
 using System.Collections.Concurrent;
@@ -14,6 +19,8 @@ public class TempProgram
 {
     static async Task Main(string[] args)
     {
+        Variables.Init();
+        DatabaseWorker.Init();
         // --- Example Usage ---
 
         string myFile = "settings.txt";
@@ -132,6 +139,7 @@ public class TempProgram
         Console.WriteLine($"{trackcounter} tracks found from {albumcounter} albums by {artistcounter} artists");
         */
         // ---- CONFIG ----
+        /*
         int maxConcurrentCalls = 6; // Hard limit (change if needed)
         var semaphore = new SemaphoreSlim(maxConcurrentCalls);
         const int maxRetries = 5;   // Retry limit for transient errors
@@ -288,5 +296,6 @@ public class TempProgram
         Console.WriteLine($"Albums : {albumIDs.Count}");
         Console.WriteLine($"Artists: {artistIDs.Count}");
         Console.WriteLine("------------------------------------\n");
+        */
     }
 }

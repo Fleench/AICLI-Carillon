@@ -1,3 +1,9 @@
+/* File: SpotifyWorker.cs
+ * Author: Glenn Sutherland
+ * Description: A wrapper for the SpotifyAPI.Web module. This abstraction allows
+ * this module to be used instead ensuring that if the API used by the module is
+ * switched the programs using this module do not break.
+ */
 using System.Security.Cryptography;
 using SpotifyAPI.Web;
 using SpotifyAPI.Web.Auth;

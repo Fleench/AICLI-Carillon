@@ -1,3 +1,8 @@
+/* File: text.cs
+ * Author: Gemmeni Pro 2.5
+ * Description: This is an AI genereted debug module to quickly save data for testing.
+ * It is not designed to be used in production. Nor should it be used as a permanent solution.
+ */
 using System;
 using System.IO;        // Required for File operations
 using System.Linq;      // Required for .ToList()

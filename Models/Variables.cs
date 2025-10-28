@@ -1,3 +1,7 @@
+/* File: Variables.cs
+ * Author: Glenn Sutherland
+ * Description: Variables and Classes used by the program
+ */
 using System;
 using System.IO;
 namespace Spotify_Playlist_Manager.Models
@@ -8,7 +12,7 @@ namespace Spotify_Playlist_Manager.Models
     {
         // App Info
         public const string AppName = "SpotifyPlaylistManager";
-        public static readonly string AppVersion = "1.0.0";
+        public static readonly string AppVersion = "0.0.0";
 
         // Base Directories
         public static readonly string AppDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppName);
@@ -18,10 +22,12 @@ namespace Spotify_Playlist_Manager.Models
 
         public static readonly string CachePath = Path.Combine(AppDataPath, "/cache");
         // Initialize any needed directories
-        static Variables()
+        public static void Init()
         {
             Directory.CreateDirectory(AppDataPath);
             Directory.CreateDirectory(CachePath);
+            File.Create(DatabasePath).Close();
+            Console.WriteLine(DatabasePath);
         }
 
         public class PlayList
