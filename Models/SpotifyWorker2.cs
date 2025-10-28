@@ -1,5 +1,5 @@
 /* File: SpotifyWorker2.cs
- * Author: Glenn Sutherland
+ * Author: ChatGPT Codex
  * Description: A guarded wrapper for the SpotifyAPI.Web module that mirrors
  *              SpotifyWorker functionality while coordinating access through
  *              a singleton Spotify session.
