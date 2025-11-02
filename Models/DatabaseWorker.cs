@@ -1,5 +1,5 @@
 /* File: DatabaseWorker.cs
- * Author: Glenn Sutherland
+ * Author: Glenn Sutherland, ChatGPT Codex
  * Description: This manages the sql commands and database for the software. 
 */
 using Spotify_Playlist_Manager.Models;
@@ -99,7 +99,7 @@ namespace Spotify_Playlist_Manager.Models
             return cmd.ExecuteScalar() as string;
         }
 
-        public static IEnumerable<(string key, string value)> GetSettings()
+        public static IEnumerable<(string key, string value)> GetAllSettings()
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
             conn.Open();
@@ -116,6 +116,166 @@ namespace Spotify_Playlist_Manager.Models
                 string value = reader.GetString(1); // column index 1 → Value
                 yield return (key, value);
             }
+        }
+
+        public static void SetPlaylist(Variables.PlayList playlist)
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"INSERT OR REPLACE INTO Playlists (Id, Name, ImageURL, Description, SnapshotID, TrackIDs)
+                                VALUES ($id, $name, $imageUrl, $description, $snapshotId, $trackIds);";
+
+            cmd.Parameters.AddWithValue("$id", playlist.Id ?? string.Empty);
+            cmd.Parameters.AddWithValue("$name", playlist.Name ?? string.Empty);
+            cmd.Parameters.AddWithValue("$imageUrl", playlist.ImageURL ?? string.Empty);
+            cmd.Parameters.AddWithValue("$description", playlist.Description ?? string.Empty);
+            cmd.Parameters.AddWithValue("$snapshotId", playlist.SnapshotID ?? string.Empty);
+            cmd.Parameters.AddWithValue("$trackIds", playlist.TrackIDs ?? string.Empty);
+
+            cmd.ExecuteNonQuery();
+        }
+
+        public static Variables.PlayList? GetPlaylist(string id)
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Id, Name, ImageURL, Description, SnapshotID, TrackIDs FROM Playlists WHERE Id = $id LIMIT 1;";
+            cmd.Parameters.AddWithValue("$id", id);
+
+            using var reader = cmd.ExecuteReader();
+
+            if (reader.Read())
+            {
+                return new Variables.PlayList
+                {
+                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                    Name = reader["Name"]?.ToString() ?? string.Empty,
+                    ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
+                    Description = reader["Description"]?.ToString() ?? string.Empty,
+                    SnapshotID = reader["SnapshotID"]?.ToString() ?? string.Empty,
+                    TrackIDs = reader["TrackIDs"]?.ToString() ?? string.Empty
+                };
+            }
+
+            return null;
+        }
+
+        public static IEnumerable<Variables.PlayList> GetAllPlaylists()
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Id, Name, ImageURL, Description, SnapshotID, TrackIDs FROM Playlists;";
+
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                yield return new Variables.PlayList
+                {
+                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                    Name = reader["Name"]?.ToString() ?? string.Empty,
+                    ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
+                    Description = reader["Description"]?.ToString() ?? string.Empty,
+                    SnapshotID = reader["SnapshotID"]?.ToString() ?? string.Empty,
+                    TrackIDs = reader["TrackIDs"]?.ToString() ?? string.Empty
+                };
+            }
+        }
+
+        public static void SetAlbum(Variables.Album album)
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"INSERT OR REPLACE INTO Albums (Id, Name, ImageURL, ArtistIDs, TrackIDs)
+                                VALUES ($id, $name, $imageUrl, $artistIds, $trackIds);";
+
+            cmd.Parameters.AddWithValue("$id", album.Id ?? string.Empty);
+            cmd.Parameters.AddWithValue("$name", album.Name ?? string.Empty);
+            cmd.Parameters.AddWithValue("$imageUrl", album.ImageURL ?? string.Empty);
+            cmd.Parameters.AddWithValue("$artistIds", album.ArtistIDs ?? string.Empty);
+            cmd.Parameters.AddWithValue("$trackIds", album.TrackIDs ?? string.Empty);
+
+            cmd.ExecuteNonQuery();
+        }
+
+        public static Variables.Album? GetAlbum(string id)
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Id, Name, ImageURL, ArtistIDs, TrackIDs FROM Albums WHERE Id = $id LIMIT 1;";
+            cmd.Parameters.AddWithValue("$id", id);
+
+            using var reader = cmd.ExecuteReader();
+
+            if (reader.Read())
+            {
+                return new Variables.Album
+                {
+                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                    Name = reader["Name"]?.ToString() ?? string.Empty,
+                    ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
+                    ArtistIDs = reader["ArtistIDs"]?.ToString() ?? string.Empty,
+                    TrackIDs = reader["TrackIDs"]?.ToString() ?? string.Empty
+                };
+            }
+
+            return null;
+        }
+
+        public static IEnumerable<Variables.Album> GetAllAlbums()
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Id, Name, ImageURL, ArtistIDs, TrackIDs FROM Albums;";
+
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                yield return new Variables.Album
+                {
+                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                    Name = reader["Name"]?.ToString() ?? string.Empty,
+                    ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
+                    ArtistIDs = reader["ArtistIDs"]?.ToString() ?? string.Empty,
+                    TrackIDs = reader["TrackIDs"]?.ToString() ?? string.Empty
+                };
+            }
+        }
+
+        public static void SetTrack(Variables.Track track)
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"INSERT OR REPLACE INTO Tracks (Id, SongID, Name, AlbumId, ArtistIds, DiscNumber, DurationMs, Explicit, PreviewUrl, TrackNumber)
+                                VALUES ($id, $songId, $name, $albumId, $artistIds, $discNumber, $durationMs, $explicit, $previewUrl, $trackNumber);";
+
+            cmd.Parameters.AddWithValue("$id", track.Id ?? string.Empty);
+            cmd.Parameters.AddWithValue("$songId", track.SongID ?? string.Empty);
+            cmd.Parameters.AddWithValue("$name", track.Name ?? string.Empty);
+            cmd.Parameters.AddWithValue("$albumId", track.AlbumId ?? string.Empty);
+            cmd.Parameters.AddWithValue("$artistIds", track.ArtistIds ?? string.Empty);
+            cmd.Parameters.AddWithValue("$discNumber", track.DiscNumber);
+            cmd.Parameters.AddWithValue("$durationMs", track.DurationMs);
+            cmd.Parameters.AddWithValue("$explicit", track.Explicit ? 1 : 0);
+            cmd.Parameters.AddWithValue("$previewUrl", track.PreviewUrl ?? string.Empty);
+            cmd.Parameters.AddWithValue("$trackNumber", track.TrackNumber);
+
+            cmd.ExecuteNonQuery();
         }
 
         public static Variables.Track GetTrack(string id)
@@ -157,6 +317,153 @@ namespace Spotify_Playlist_Manager.Models
             }
 
             return null; // No result found
+        }
+
+        public static IEnumerable<Variables.Track> GetAllTracks()
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM Tracks;";
+
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                yield return new Variables.Track(
+                    name: reader["Name"]?.ToString() ?? string.Empty,
+                    id: reader["Id"]?.ToString() ?? string.Empty,
+                    albumId: reader["AlbumId"]?.ToString() ?? string.Empty,
+                    artistIds: reader["ArtistIds"]?.ToString() ?? string.Empty,
+                    discNumber: reader["DiscNumber"] is DBNull ? 0 : Convert.ToInt32(reader["DiscNumber"]),
+                    durationMs: reader["DurationMs"] is DBNull ? 0 : Convert.ToInt32(reader["DurationMs"]),
+                    @explicit: reader["Explicit"] is DBNull ? false : Convert.ToInt32(reader["Explicit"]) == 1,
+                    previewUrl: reader["PreviewUrl"]?.ToString() ?? string.Empty,
+                    trackNumber: reader["TrackNumber"] is DBNull ? 0 : Convert.ToInt32(reader["TrackNumber"]),
+                    songId: reader["SongID"]?.ToString() ?? string.Empty
+                );
+            }
+        }
+
+        public static void SetArtist(Variables.Artist artist)
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"INSERT OR REPLACE INTO Artists (Id, Name, ImageURL, Generes)
+                                VALUES ($id, $name, $imageUrl, $generes);";
+
+            cmd.Parameters.AddWithValue("$id", artist.Id ?? string.Empty);
+            cmd.Parameters.AddWithValue("$name", artist.Name ?? string.Empty);
+            cmd.Parameters.AddWithValue("$imageUrl", artist.ImageURL ?? string.Empty);
+            cmd.Parameters.AddWithValue("$generes", artist.Generes ?? string.Empty);
+
+            cmd.ExecuteNonQuery();
+        }
+
+        public static Variables.Artist? GetArtist(string id)
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Id, Name, ImageURL, Generes FROM Artists WHERE Id = $id LIMIT 1;";
+            cmd.Parameters.AddWithValue("$id", id);
+
+            using var reader = cmd.ExecuteReader();
+
+            if (reader.Read())
+            {
+                return new Variables.Artist
+                {
+                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                    Name = reader["Name"]?.ToString() ?? string.Empty,
+                    ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
+                    Generes = reader["Generes"]?.ToString() ?? string.Empty
+                };
+            }
+
+            return null;
+        }
+
+        public static IEnumerable<Variables.Artist> GetAllArtists()
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Id, Name, ImageURL, Generes FROM Artists;";
+
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                yield return new Variables.Artist
+                {
+                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                    Name = reader["Name"]?.ToString() ?? string.Empty,
+                    ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
+                    Generes = reader["Generes"]?.ToString() ?? string.Empty
+                };
+            }
+        }
+
+        public static void SetSimilar(string songId, string songId2)
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"INSERT INTO Similar (SongID, SongID2) VALUES ($songId, $songId2);";
+
+            cmd.Parameters.AddWithValue("$songId", songId);
+            cmd.Parameters.AddWithValue("$songId2", songId2);
+
+            cmd.ExecuteNonQuery();
+        }
+
+        public static (string SongId, string SongId2)? GetSimilar(string songId, string songId2)
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT SongID, SongID2 FROM Similar WHERE SongID = $songId AND SongID2 = $songId2 LIMIT 1;";
+            cmd.Parameters.AddWithValue("$songId", songId);
+            cmd.Parameters.AddWithValue("$songId2", songId2);
+
+            using var reader = cmd.ExecuteReader();
+
+            if (reader.Read())
+            {
+                return (
+                    reader["SongID"]?.ToString() ?? string.Empty,
+                    reader["SongID2"]?.ToString() ?? string.Empty
+                );
+            }
+
+            return null;
+        }
+
+        public static IEnumerable<(string SongId, string SongId2)> GetAllSimilar()
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT SongID, SongID2 FROM Similar;";
+
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                yield return (
+                    reader["SongID"]?.ToString() ?? string.Empty,
+                    reader["SongID2"]?.ToString() ?? string.Empty
+                );
+            }
         }
 
 
