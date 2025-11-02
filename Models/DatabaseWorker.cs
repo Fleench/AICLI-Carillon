@@ -17,12 +17,12 @@ namespace Spotify_Playlist_Manager.Models
             using var conn = new SqliteConnection($"Data Source={db_path}");
             conn.Open();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"
+            cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS Settings (
                 Key TEXT PRIMARY KEY,
                 Value TEXT NOT NULL
             );
-        ";
+        """;
             cmd.ExecuteNonQuery();
         }
 
