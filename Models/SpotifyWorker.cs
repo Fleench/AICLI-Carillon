@@ -14,6 +14,13 @@ using SpotifyAPI.Web.Auth;
 
 namespace Spotify_Playlist_Manager.Models
 {
+    /// <summary>
+    /// Centralized entry point for every Spotify Web API interaction in the app.
+    /// The class exposes the same surface area as the previous generation worker
+    /// but funnels calls through <see cref="SpotifySession"/> so that token
+    /// refreshes, client reuse, and configuration stay consistent across the
+    /// application.
+    /// </summary>
     static class SpotifyWorker
     {
         private static string ClientID;
@@ -21,6 +28,17 @@ namespace Spotify_Playlist_Manager.Models
         private static readonly string Uri = "http://127.0.0.1:5543/callback";
         private static readonly int Port = 5543;
 
+        /// <summary>
+        /// Configures the worker with user-provided credentials and optional
+        /// cached tokens. This mirrors the old API surface but now forwards the
+        /// data into <see cref="SpotifySession"/> which owns the Spotify client
+        /// lifecycle.
+        /// </summary>
+        /// <param name="ck">The Spotify client ID.</param>
+        /// <param name="cs">The Spotify client secret.</param>
+        /// <param name="at">An optional cached access token.</param>
+        /// <param name="rt">An optional cached refresh token.</param>
+        /// <param name="e">The token expiration timestamp in UTC.</param>
         public static void Init(string ck, string cs, string at = "", string rt = "", DateTime e = new DateTime())
         {
             if (string.IsNullOrWhiteSpace(ck))
@@ -47,6 +65,12 @@ namespace Spotify_Playlist_Manager.Models
             );
         }
 
+        /// <summary>
+        /// Performs the full OAuth flow if the current session is missing
+        /// tokens. When tokens are already present it simply ensures that the
+        /// underlying client is ready to use. The method returns a tuple with
+        /// the active access and refresh tokens so callers can persist them.
+        /// </summary>
         public static async Task<(string AccessToken, string RefreshToken)> AuthenticateAsync()
         {
             if (string.IsNullOrWhiteSpace(ClientID) || string.IsNullOrWhiteSpace(ClientSecret))
@@ -81,12 +105,23 @@ namespace Spotify_Playlist_Manager.Models
             return (snapshot.AccessToken, snapshot.RefreshToken);
         }
 
+        /// <summary>
+        /// Provides read-only access to the currently cached tokens without
+        /// forcing a refresh cycle. Primarily used for persisting credentials
+        /// between runs of the desktop application.
+        /// </summary>
         public static (string AccessToken, string RefreshToken, DateTime ExpiresAt) GetCurrentTokens()
         {
             var snapshot = SpotifySession.Instance.GetTokenSnapshot();
             return (snapshot.AccessToken, snapshot.RefreshToken, snapshot.ExpiresAt);
         }
 
+        /// <summary>
+        /// Given a token set and expiration timestamp, refreshes the tokens if
+        /// they are close to expiry. This helper exists separately so that the
+        /// session can reuse the logic and the tests can exercise it in
+        /// isolation.
+        /// </summary>
         public static async Task<(string accessToken, string refreshToken, DateTime expiresAt)> RefreshTokensIfNeededAsync(
             string clientId,
             string clientSecret,
@@ -95,10 +130,13 @@ namespace Spotify_Playlist_Manager.Models
             DateTime expiresAtUtc,
             TimeSpan? refreshThreshold = null)
         {
+            // Default to five minutes of buffer time so we do not send users
+            // into an API call with an access token that will expire mid-flight.
             var threshold = refreshThreshold ?? TimeSpan.FromMinutes(5);
 
             if (expiresAtUtc != DateTime.MinValue && DateTime.UtcNow < expiresAtUtc - threshold)
             {
+                // Tokens are still valid, so we return the inputs untouched.
                 return (accessToken, refreshToken, expiresAtUtc);
             }
 
@@ -114,6 +152,12 @@ namespace Spotify_Playlist_Manager.Models
             return (newAccessToken, newRefreshToken, newExpiresAt);
         }
 
+        /// <summary>
+        /// Kicks off the full embedded authorization flow and resolves once the
+        /// user has completed the login in their browser. The EmbedIO server
+        /// mirrors the original worker behaviour but with clearer error
+        /// reporting.
+        /// </summary>
         public static async Task<(string accessToken, string refreshToken, DateTime expiresAt)> AuthenticateFlowAsync(string clientId, string clientSecret)
         {
             using var server = new EmbedIOAuthServer(new Uri(Uri), Port);
@@ -131,12 +175,15 @@ namespace Spotify_Playlist_Manager.Models
                 );
 
                 var expiresAt = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
+                // Capture all token data for the caller to persist.
                 tcs.TrySetResult((tokenResponse.AccessToken, tokenResponse.RefreshToken, expiresAt));
             };
 
             server.ErrorReceived += async (sender, error, state) =>
             {
                 await server.Stop();
+                // Propagate the failure to the awaiting caller so they can show
+                // an appropriate error message.
                 tcs.TrySetException(new Exception($"Spotify auth error: {error}"));
             };
 
@@ -160,6 +207,11 @@ namespace Spotify_Playlist_Manager.Models
             return await tcs.Task.ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// Enumerates every liked track in chunks of fifty. The method yields a
+        /// lightweight tuple that mirrors the old worker's string payload while
+        /// avoiding additional allocations.
+        /// </summary>
         public static async IAsyncEnumerable<(string Id, string Name, string Artists)> GetLikedSongsAsync()
         {
             var spotify = await SpotifySession.Instance.GetClientAsync();
@@ -173,6 +225,7 @@ namespace Spotify_Playlist_Manager.Models
 
                     if (track == null)
                     {
+                        // Some saved items can be local files or missing tracks.
                         continue;
                     }
 
@@ -189,11 +242,19 @@ namespace Spotify_Playlist_Manager.Models
                 }
                 catch
                 {
+                    // If Spotify rejects pagination we stop rather than
+                    // spinning forever. This matches the behaviour of the old
+                    // worker which swallowed such errors.
                     break;
                 }
             }
         }
 
+        /// <summary>
+        /// Streams all of the user's playlists. Each result contains the ID,
+        /// the display name, and the count of tracks so the caller can decide
+        /// whether to fetch additional details.
+        /// </summary>
         public static async IAsyncEnumerable<(string Id, string Name, int TrackCount)> GetUserPlaylistsAsync()
         {
             var spotify = await SpotifySession.Instance.GetClientAsync();
@@ -216,11 +277,19 @@ namespace Spotify_Playlist_Manager.Models
                 }
                 catch
                 {
+                    // Gracefully abandon pagination on errors; the UI already
+                    // shows what we managed to load, which is the legacy
+                    // behaviour the user expects.
                     break;
                 }
             }
         }
 
+        /// <summary>
+        /// Walks through the user's saved albums, yielding a tuple that lines up
+        /// with the consumer logic in the view model. Artist IDs are packed with
+        /// the same separators used elsewhere in the code base.
+        /// </summary>
         public static async IAsyncEnumerable<(string Id, string Name, int TrackCount, string Artists)> GetUserAlbumsAsync()
         {
             var spotify = await SpotifySession.Instance.GetClientAsync();
@@ -244,11 +313,17 @@ namespace Spotify_Playlist_Manager.Models
                 }
                 catch
                 {
+                    // Stop iterating if Spotify signals an error while paging.
                     break;
                 }
             }
         }
 
+        /// <summary>
+        /// Retrieves detailed playlist information including the snapshot ID and
+        /// a flattened list of track IDs. Consumers rely on the string payloads
+        /// so we preserve that structure while documenting the intent in code.
+        /// </summary>
         public static async Task<(string? name, string? imageURL, string? Id, string? Description, string? SnapshotID, string? TrackIDs)> GetPlaylistDataAsync(string id)
         {
             var spotify = await SpotifySession.Instance.GetClientAsync();
@@ -262,6 +337,8 @@ namespace Spotify_Playlist_Manager.Models
             }
             catch
             {
+                // Older playlists occasionally lack artwork. Matching the
+                // original implementation we fall back to an empty string.
                 imageURL = string.Empty;
             }
 
@@ -276,6 +353,11 @@ namespace Spotify_Playlist_Manager.Models
             return (playlist.Name, imageURL, playlist.Id, playlist.Description, playlist.SnapshotId, trackIDs);
         }
 
+        /// <summary>
+        /// Pulls full album metadata plus lists of track and artist IDs. The
+        /// data is formatted exactly like the legacy worker so downstream
+        /// consumers do not need to change.
+        /// </summary>
         public static async Task<(string? name, string? imageURL, string? Id, string TrackIDs, string artistIDs)> GetAlbumDataAsync(string id)
         {
             var spotify = await SpotifySession.Instance.GetClientAsync();
@@ -306,6 +388,11 @@ namespace Spotify_Playlist_Manager.Models
             return (album.Name, imageURL, album.Id, trackIDs, artistIDs);
         }
 
+        /// <summary>
+        /// Returns a tuple of the most important song metadata for a given
+        /// track. Tuples keep the public signature identical to the v1 worker so
+        /// callers can continue unpacking values without refactoring.
+        /// </summary>
         public static async Task<(string name, string id, string albumID, string artistIDs, int discnumber, int durrationms, bool Explicit, string previewURL, int tracknumber)> GetSongDataAsync(string id)
         {
             var spotify = await SpotifySession.Instance.GetClientAsync();
@@ -324,6 +411,11 @@ namespace Spotify_Playlist_Manager.Models
             );
         }
 
+        /// <summary>
+        /// Collects the basic artist info used throughout the UI. The method
+        /// includes a defensive check for missing artwork because many artists
+        /// do not expose images via the API.
+        /// </summary>
         public static async Task<(string Id, string Name, string? ImageUrl, string Genres)> GetArtistDataAsync(string id)
         {
             var spotify = await SpotifySession.Instance.GetClientAsync();
@@ -336,6 +428,11 @@ namespace Spotify_Playlist_Manager.Models
             return (artist.Id, artist.Name, imageUrl, genres);
         }
 
+        /// <summary>
+        /// Adds the provided track IDs to a playlist. The worker handles the
+        /// conversion from raw Spotify IDs to Spotify URIs so callers can remain
+        /// agnostic about URI formatting rules.
+        /// </summary>
         public static async Task AddTracksToPlaylistAsync(string playlistId, List<string> trackIds)
         {
             var spotify = await SpotifySession.Instance.GetClientAsync();
@@ -345,6 +442,12 @@ namespace Spotify_Playlist_Manager.Models
         }
     }
 
+    /// <summary>
+    /// Thread-safe singleton responsible for storing credentials, refreshing
+    /// tokens, and providing a configured <see cref="SpotifyClient"/> instance.
+    /// The worker above delegates all state management to this type so that it
+    /// can focus on the public API surface.
+    /// </summary>
     sealed class SpotifySession
     {
         private static readonly Lazy<SpotifySession> _instance = new(() => new SpotifySession());
@@ -366,6 +469,12 @@ namespace Spotify_Playlist_Manager.Models
 
         public bool HasTokens => !string.IsNullOrEmpty(_accessToken) && !string.IsNullOrEmpty(_refreshToken);
 
+        /// <summary>
+        /// Configures the session with the credentials required to establish a
+        /// Spotify connection. Optional token values allow the app to resume a
+        /// previous session without forcing the user back through the OAuth
+        /// flow.
+        /// </summary>
         public void Initialize(string clientId, string clientSecret, string? accessToken = null, string? refreshToken = null, DateTime? expiresAt = null)
         {
             if (string.IsNullOrWhiteSpace(clientId))
@@ -399,6 +508,11 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Returns a simple tuple representing the cached token state. The
+        /// method avoids exposing the underlying fields so callers cannot
+        /// mutate them directly.
+        /// </summary>
         public (string AccessToken, string RefreshToken, DateTime ExpiresAt) GetTokenSnapshot()
         {
             return (
@@ -408,11 +522,21 @@ namespace Spotify_Playlist_Manager.Models
             );
         }
 
+        /// <summary>
+        /// Returns a tuple of the stored client credentials so that
+        /// <see cref="SpotifyWorker"/> can fall back to them if the caller did
+        /// not provide explicit values.
+        /// </summary>
         public (string? ClientId, string? ClientSecret) GetCredentialSnapshot()
         {
             return (_clientId, _clientSecret);
         }
 
+        /// <summary>
+        /// Produces a ready-to-use <see cref="SpotifyClient"/>. The method takes
+        /// care of refreshing tokens when necessary and lazily creates the
+        /// client to avoid unnecessary network calls.
+        /// </summary>
         public async Task<SpotifyClient> GetClientAsync()
         {
             if (!_configured)
@@ -439,6 +563,8 @@ namespace Spotify_Playlist_Manager.Models
                         throw new InvalidOperationException("SpotifySession is missing client credentials required for token refresh.");
                     }
 
+                    // Delegate the refresh logic to the static helper so that
+                    // both the worker and the session share the same behaviour.
                     var (newAccessToken, newRefreshToken, newExpiresAt) = await SpotifyWorker.RefreshTokensIfNeededAsync(
                         _clientId,
                         _clientSecret,
@@ -455,6 +581,8 @@ namespace Spotify_Playlist_Manager.Models
                 }
                 else if (_client == null)
                 {
+                    // Lazily create the Spotify client if we have tokens but
+                    // have not yet needed to execute an API call in this run.
                     _client = new SpotifyClient(_accessToken);
                 }
 
