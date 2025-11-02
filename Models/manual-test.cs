@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 using Spotify_Playlist_Manager.Models;
 using System.Collections.Concurrent;
 using System.Threading;
-using Swan;
 
 public class TempProgram
 {
@@ -63,8 +62,9 @@ public class TempProgram
         }
 
         Console.WriteLine($"ClientID: {clientID}, ClientSecret: {clientSecret}");
-        SpotifyWorker.Init(clientID, clientSecret, token, refreshToken);
-        var (at, rt) = await SpotifyWorker.AuthenticateAsync();
+        SpotifyWorker.Init(clientID, clientSecret,token, refreshToken);
+        SpotifyWorker_Old.Init(clientID, clientSecret, token, refreshToken);
+        var (at, rt) = await SpotifyWorker_Old.AuthenticateAsync();
         FileHelper.ModifySpecificLine(myFile, 4, clientID);
         FileHelper.ModifySpecificLine(myFile, 1, clientSecret);
         FileHelper.ModifySpecificLine(myFile, 2, at);
@@ -90,13 +90,13 @@ public class TempProgram
         string trackID = "";
         string albumID = "";
         string artistID = "";
-        await foreach (var playlist in SpotifyWorker.GetUserPlaylistsAsync())
+        await foreach (var playlist in SpotifyWorker_Old.GetUserPlaylistsAsync())
         {
             playlistID = playlist.Id;
             break;
         }
-        trackID = SpotifyWorker.GetPlaylistDataAsync(playlistID).Result.TrackIDs.Split(Variables.Seperator)[0];
-        var data = SpotifyWorker.GetSongDataAsync(trackID);
+        trackID = SpotifyWorker_Old.GetPlaylistDataAsync(playlistID).Result.TrackIDs.Split(Variables.Seperator)[0];
+        var data = SpotifyWorker_Old.GetSongDataAsync(trackID);
         albumID = data.Result.albumID;
         artistID = data.Result.artistIDs.Split(Variables.Seperator)[0];
         return  (playlistID, trackID, albumID, artistID);
