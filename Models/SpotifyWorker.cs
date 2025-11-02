@@ -423,5 +423,15 @@ namespace Spotify_Playlist_Manager.Models
             var request = new PlaylistAddItemsRequest(uris);
             await spotify.Playlists.AddItems(playlistId, request);
         }
+
+        /// <summary>
+        /// Provides the currently cached Spotify authentication tokens and their expiration timestamp.
+        /// Returns empty strings for tokens when the authentication flow has not yet completed.
+        /// </summary>
+        /// <returns>A tuple containing the access token, refresh token, and token expiration time.</returns>
+        public static (string AccessToken, string RefreshToken, DateTime ExpiresAt) GetCurrentTokens()
+        {
+            return (AccessToken ?? string.Empty, RefreshToken ?? string.Empty, Expires);
+        }
     }
 }
