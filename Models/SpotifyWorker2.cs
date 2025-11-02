@@ -23,14 +23,24 @@ namespace Spotify_Playlist_Manager.Models
 
         public static void Init(string ck, string cs, string at = "", string rt = "", DateTime e = new DateTime())
         {
-            ClientID = ck;
-            ClientSecret = cs;
+            if (string.IsNullOrWhiteSpace(ck))
+            {
+                throw new ArgumentException("A non-empty Spotify client ID must be provided.", nameof(ck));
+            }
+
+            if (string.IsNullOrWhiteSpace(cs))
+            {
+                throw new ArgumentException("A non-empty Spotify client secret must be provided.", nameof(cs));
+            }
+
+            ClientID = ck.Trim();
+            ClientSecret = cs.Trim();
 
             DateTime? expires = e == DateTime.MinValue ? null : e;
 
             SpotifySession.Instance.Initialize(
-                ck,
-                cs,
+                ClientID,
+                ClientSecret,
                 string.IsNullOrEmpty(at) ? null : at,
                 string.IsNullOrEmpty(rt) ? null : rt,
                 expires
@@ -39,9 +49,20 @@ namespace Spotify_Playlist_Manager.Models
 
         public static async Task<(string AccessToken, string RefreshToken)> AuthenticateAsync()
         {
-            if (string.IsNullOrEmpty(ClientID) || string.IsNullOrEmpty(ClientSecret))
+            if (string.IsNullOrWhiteSpace(ClientID) || string.IsNullOrWhiteSpace(ClientSecret))
             {
-                throw new InvalidOperationException("SpotifyWorker2.Init must be called before AuthenticateAsync.");
+                var (clientId, clientSecret) = SpotifySession.Instance.GetCredentialSnapshot();
+
+                if (!string.IsNullOrWhiteSpace(clientId) && !string.IsNullOrWhiteSpace(clientSecret))
+                {
+                    ClientID = clientId!.Trim();
+                    ClientSecret = clientSecret!.Trim();
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(ClientID) || string.IsNullOrWhiteSpace(ClientSecret))
+            {
+                throw new InvalidOperationException("SpotifyWorker2.Init must be called with a valid client ID and client secret before AuthenticateAsync.");
             }
 
             var session = SpotifySession.Instance;
@@ -58,6 +79,12 @@ namespace Spotify_Playlist_Manager.Models
 
             var snapshot = session.GetTokenSnapshot();
             return (snapshot.AccessToken, snapshot.RefreshToken);
+        }
+
+        public static (string AccessToken, string RefreshToken, DateTime ExpiresAt) GetCurrentTokens()
+        {
+            var snapshot = SpotifySession.Instance.GetTokenSnapshot();
+            return (snapshot.AccessToken, snapshot.RefreshToken, snapshot.ExpiresAt);
         }
 
         public static async Task<(string accessToken, string refreshToken, DateTime expiresAt)> RefreshTokensIfNeededAsync(
@@ -341,8 +368,18 @@ namespace Spotify_Playlist_Manager.Models
 
         public void Initialize(string clientId, string clientSecret, string? accessToken = null, string? refreshToken = null, DateTime? expiresAt = null)
         {
-            _clientId = clientId;
-            _clientSecret = clientSecret;
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                throw new ArgumentException("A Spotify client ID is required when configuring the session.", nameof(clientId));
+            }
+
+            if (string.IsNullOrWhiteSpace(clientSecret))
+            {
+                throw new ArgumentException("A Spotify client secret is required when configuring the session.", nameof(clientSecret));
+            }
+
+            _clientId = clientId.Trim();
+            _clientSecret = clientSecret.Trim();
             _configured = true;
 
             if (!string.IsNullOrEmpty(accessToken))
@@ -369,6 +406,11 @@ namespace Spotify_Playlist_Manager.Models
                 _refreshToken ?? string.Empty,
                 _expiresAt
             );
+        }
+
+        public (string? ClientId, string? ClientSecret) GetCredentialSnapshot()
+        {
+            return (_clientId, _clientSecret);
         }
 
         public async Task<SpotifyClient> GetClientAsync()
