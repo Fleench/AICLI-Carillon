@@ -21,6 +21,8 @@ namespace Spotify_Playlist_Manager.Models
         public static readonly string DatabasePath = Path.Combine(AppDataPath, "data.db");
 
         public static readonly string CachePath = Path.Combine(AppDataPath, "/cache");
+
+        public static readonly string Seperator = ";;";
         // Initialize any needed directories
         public static void Init()
         {
@@ -61,6 +63,13 @@ namespace Spotify_Playlist_Manager.Models
             public int TrackNumber { get; set; }
         }
 
+        public static class Settings
+        {
+            public static string SW_AccessToken = "SW_AccessToken";
+            public static string SW_RefreshToken = "SW_RefreshToken";
+            public static string SW_ClientToken = "SW_ClientToken";
+            public static string SW_ClientSecret = "SW_ClientSecret";
+        }
     }
 
 }

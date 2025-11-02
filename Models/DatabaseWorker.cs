@@ -25,5 +25,27 @@ namespace Spotify_Playlist_Manager.Models
         ";
             cmd.ExecuteNonQuery();
         }
+
+        public static void SetSetting(string key, string value)
+        {
+            using var conn = new SqliteConnection($"Data Source={db_path}");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "INSERT OR REPLACE INTO Settings (Key, Value) VALUES ($key, $value);";
+            cmd.Parameters.AddWithValue("$key", key);
+            cmd.Parameters.AddWithValue("$value", value);
+            cmd.ExecuteNonQuery();
+        }
+
+        public static string? GetSetting(string key)
+        {
+            using var conn = new SqliteConnection($"Data Source={db_path}");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Value FROM Settings WHERE Key = $key;";
+            cmd.Parameters.AddWithValue("$key", key);
+            return cmd.ExecuteScalar() as string;
+        }
+
     }
 }
