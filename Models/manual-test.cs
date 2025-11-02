@@ -81,7 +81,11 @@ public class TempProgram
         IEnumerable<string> list = new[] { st };
         FileHelper.CreateOrOverwriteFile(data, list);
         FileHelper.ModifySpecificLine(data, 1, st);*/
-        
+        for (int i=0; i <= 10;i++)
+        {
+        Console.WriteLine(Variables.MakeId());
+            
+        }
     }
 
     public static async Task<(string playlistID, string trackID, string albumID, string artistID)> Getabitofdata()

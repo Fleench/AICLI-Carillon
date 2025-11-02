@@ -4,6 +4,8 @@
  */
 using System;
 using System.IO;
+using System.Linq;
+
 namespace Spotify_Playlist_Manager.Models
 {
 
@@ -23,6 +25,9 @@ namespace Spotify_Playlist_Manager.Models
         public static readonly string CachePath = Path.Combine(AppDataPath, "/cache");
 
         public static readonly string Seperator = ";;";
+        public static readonly string Identifier = "CIID";
+        public static readonly string IdentifierDelimiter = "___";
+        public static readonly Random RNG = new Random();
         // Initialize any needed directories
         public static void Init()
         {
@@ -34,7 +39,7 @@ namespace Spotify_Playlist_Manager.Models
 
         public class PlayList
         {
-            public string name;
+            public string Name;
             public string ImageURL;
             public string Id;
             public string Description;
@@ -43,7 +48,7 @@ namespace Spotify_Playlist_Manager.Models
         }
         public class Album
         {
-            public string name;
+            public string Name;
             public string ImageURL;
             public string Id;
             public string ArtistIDs;
@@ -52,23 +57,62 @@ namespace Spotify_Playlist_Manager.Models
 
         public class Track
         {
-            public string Name { get; set; }
-            public string Id { get; set; }
-            public string AlbumId { get; set; }
-            public string ArtistIds { get; set; }
-            public int DiscNumber { get; set; }
-            public int DurationMs { get; set; }
-            public bool Explicit { get; set; }
-            public string PreviewUrl { get; set; }
-            public int TrackNumber { get; set; }
+            public string Name;
+            public string Id;
+            public string AlbumId;
+            public string ArtistIds;
+            public int DiscNumber;
+            public int DurationMs;
+            public bool Explicit;
+            public string PreviewUrl;
+            public int TrackNumber;
+            public string SongID;
+
+            public Track(string name, string id, string albumId, string artistIds, int  discNumber, int durationMs, bool @explicit, string previewUrl, int trackNumber, string songId="")
+            {
+                Name = name;
+                Id = id;
+                AlbumId = albumId;
+                ArtistIds = artistIds;
+                DiscNumber = discNumber;
+                DurationMs = durationMs;
+                Explicit = @explicit;
+                PreviewUrl = previewUrl;
+                TrackNumber = trackNumber;
+                if (songId == null || songId == "")
+                {
+                    songId = Variables.MakeId();
+                }
+                else
+                {
+                    SongID = songId;
+                }
+            }
         }
 
+        public class Artist
+        {
+            public string Name;
+            public string ImageURL;
+            public string Id;
+            public string Generes;
+        }
         public static class Settings
         {
             public static string SW_AccessToken = "SW_AccessToken";
             public static string SW_RefreshToken = "SW_RefreshToken";
             public static string SW_ClientToken = "SW_ClientToken";
             public static string SW_ClientSecret = "SW_ClientSecret";
+        }
+
+        public static string MakeId( string type = "SNG", int length = 30)
+        {
+            string AllowedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            string songId = Variables.Identifier + Variables.IdentifierDelimiter + type +  Variables.IdentifierDelimiter;
+            songId += new string(Enumerable.Range(0, length)
+                .Select(_ => AllowedChars[RNG.Next(AllowedChars.Length)])
+                .ToArray());
+            return songId;
         }
     }
 
