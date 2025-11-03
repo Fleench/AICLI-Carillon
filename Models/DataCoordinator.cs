@@ -48,7 +48,6 @@ namespace Spotify_Playlist_Manager.Models
             Fetch and save their metadata.
             */
              //1. Set playlists
-             HashSet<string> tracks = new();
             await foreach(var item in SpotifyWorker.GetUserPlaylistsAsync())
             {
                 var data = SpotifyWorker.GetPlaylistDataAsync(item.Id).Result;
@@ -88,7 +87,32 @@ namespace Spotify_Playlist_Manager.Models
                 }
                 DatabaseWorker.SetAlbum(album);
             }
-            
+            //3. set liked songs
+            await foreach (var item in SpotifyWorker.GetLikedSongsAsync())
+            { 
+                DatabaseWorker.SetTrack(new Variables.Track() {Id = item.Id});
+            }
+            //update track data
+            foreach (var item in DatabaseWorker.GetAllTracks())
+            {
+                if (item.MissingData())
+                {
+                    var data = SpotifyWorker.GetSongDataAsync(item.Id).Result;
+                    DatabaseWorker.SetTrack(new Variables.Track()
+                    {
+                        Id = item.Id,
+                        Name = data.name,
+                        AlbumId = data.albumID,
+                        ArtistIds = data.artistIDs,
+                        DiscNumber = data.discnumber,
+                        TrackNumber = data.tracknumber,
+                        Explicit = data.Explicit,
+                        DurationMs = data.durrationms,
+                        PreviewUrl = data.previewURL,
+                        SongID = item.SongID
+                    });
+                }
+            }
         }
     }
 }

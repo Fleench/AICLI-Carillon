@@ -73,6 +73,34 @@ namespace Spotify_Playlist_Manager.Models
                 
                     SongID = Variables.MakeId();
             }
+
+            /// <summary>
+            /// Checks if essential data fields for the track are missing or invalid.
+            /// </summary>
+            /// <returns>True if any essential data is missing; otherwise, false.</returns>
+            public bool MissingData()
+            {
+                // Check for null or empty strings in essential fields
+                if (string.IsNullOrEmpty(Name) ||
+                    string.IsNullOrEmpty(Id) ||
+                    string.IsNullOrEmpty(AlbumId) ||
+                    string.IsNullOrEmpty(ArtistIds) ||
+                    string.IsNullOrEmpty(SongID))
+                {
+                    return true;
+                }
+
+                // Check for invalid numeric values in essential fields
+                if (DurationMs <= 0 ||
+                    DiscNumber <= 0 ||
+                    TrackNumber <= 0)
+                {
+                    return true;
+                }
+
+                // If all checks pass, the data is not considered 'missing'
+                return false;
+            }
         }
 
         public class Artist
