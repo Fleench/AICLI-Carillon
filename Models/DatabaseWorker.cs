@@ -42,8 +42,7 @@ namespace Spotify_Playlist_Manager.Models
                                       Id TEXT PRIMARY KEY,               -- Spotify album ID
                                       Name TEXT,
                                       ImageURL TEXT,
-                                      ArtistIDs TEXT,                    -- 'id1;;id2;;id3'
-                                      TrackIDs TEXT                      -- 'id1;;id2;;id3'
+                                      ArtistIDs TEXT                     -- 'id1;;id2;;id3'
                                   );
 
                                   -- Tracks table (Spotify ID is anchor; SongID is internal secondary)
@@ -196,14 +195,13 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT OR REPLACE INTO Albums (Id, Name, ImageURL, ArtistIDs, TrackIDs)
-                                VALUES ($id, $name, $imageUrl, $artistIds, $trackIds);";
+            cmd.CommandText = @"INSERT OR REPLACE INTO Albums (Id, Name, ImageURL, ArtistIDs)
+                                VALUES ($id, $name, $imageUrl, $artistIds);";
 
             cmd.Parameters.AddWithValue("$id", album.Id ?? string.Empty);
             cmd.Parameters.AddWithValue("$name", album.Name ?? string.Empty);
             cmd.Parameters.AddWithValue("$imageUrl", album.ImageURL ?? string.Empty);
             cmd.Parameters.AddWithValue("$artistIds", album.ArtistIDs ?? string.Empty);
-            cmd.Parameters.AddWithValue("$trackIds", album.TrackIDs ?? string.Empty);
 
             cmd.ExecuteNonQuery();
         }
@@ -214,20 +212,22 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Name, ImageURL, ArtistIDs, TrackIDs FROM Albums WHERE Id = $id LIMIT 1;";
+            cmd.CommandText = "SELECT Id, Name, ImageURL, ArtistIDs FROM Albums WHERE Id = $id LIMIT 1;";
             cmd.Parameters.AddWithValue("$id", id);
 
             using var reader = cmd.ExecuteReader();
 
             if (reader.Read())
             {
+                var albumId = reader["Id"]?.ToString() ?? string.Empty;
+
                 return new Variables.Album
                 {
-                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                    Id = albumId,
                     Name = reader["Name"]?.ToString() ?? string.Empty,
                     ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
                     ArtistIDs = reader["ArtistIDs"]?.ToString() ?? string.Empty,
-                    TrackIDs = reader["TrackIDs"]?.ToString() ?? string.Empty
+                    TrackIDs = GetAlbumTrackIds(conn, albumId)
                 };
             }
 
@@ -240,21 +240,43 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Name, ImageURL, ArtistIDs, TrackIDs FROM Albums;";
+            cmd.CommandText = "SELECT Id, Name, ImageURL, ArtistIDs FROM Albums;";
 
             using var reader = cmd.ExecuteReader();
 
             while (reader.Read())
             {
+                var albumId = reader["Id"]?.ToString() ?? string.Empty;
                 yield return new Variables.Album
                 {
-                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                    Id = albumId,
                     Name = reader["Name"]?.ToString() ?? string.Empty,
                     ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
                     ArtistIDs = reader["ArtistIDs"]?.ToString() ?? string.Empty,
-                    TrackIDs = reader["TrackIDs"]?.ToString() ?? string.Empty
+                    TrackIDs = GetAlbumTrackIds(conn, albumId)
                 };
             }
+        }
+
+        private static string GetAlbumTrackIds(SqliteConnection connection, string albumId)
+        {
+            using var trackCmd = connection.CreateCommand();
+            trackCmd.CommandText = "SELECT Id FROM Tracks WHERE AlbumId = $albumId;";
+            trackCmd.Parameters.AddWithValue("$albumId", albumId);
+
+            using var trackReader = trackCmd.ExecuteReader();
+            List<string> trackIds = new();
+
+            while (trackReader.Read())
+            {
+                var trackId = trackReader["Id"]?.ToString();
+                if (!string.IsNullOrEmpty(trackId))
+                {
+                    trackIds.Add(trackId);
+                }
+            }
+
+            return string.Join(Variables.Seperator, trackIds);
         }
 
         public static void SetTrack(Variables.Track track)
