@@ -68,25 +68,10 @@ namespace Spotify_Playlist_Manager.Models
             public int TrackNumber;
             public string SongID;
 
-            public Track(string name, string id, string albumId, string artistIds, int  discNumber, int durationMs, bool @explicit, string previewUrl, int trackNumber, string songId="")
+            public Track()
             {
-                Name = name;
-                Id = id;
-                AlbumId = albumId;
-                ArtistIds = artistIds;
-                DiscNumber = discNumber;
-                DurationMs = durationMs;
-                Explicit = @explicit;
-                PreviewUrl = previewUrl;
-                TrackNumber = trackNumber;
-                if (songId == null || songId == "")
-                {
-                    songId = Variables.MakeId();
-                }
-                else
-                {
-                    SongID = songId;
-                }
+                
+                    SongID = Variables.MakeId();
             }
         }
 

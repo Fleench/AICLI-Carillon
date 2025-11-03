@@ -47,20 +47,48 @@ namespace Spotify_Playlist_Manager.Models
 
             Fetch and save their metadata.
             */
-             
+             //1. Set playlists
+             HashSet<string> tracks = new();
             await foreach(var item in SpotifyWorker.GetUserPlaylistsAsync())
             {
                 var data = SpotifyWorker.GetPlaylistDataAsync(item.Id).Result;
-                Variables.PlayList playlist = new Variables.PlayList()
+                Variables.PlayList playlist = new()
                 {
-                    Id = item.Id,
-        public string Name;
-        public string ImageURL;
-        public string Description;
-        public string SnapshotID;
-        public string TrackIDs;
+                    Id = data.Id,
+        Name = data.name,
+        ImageURL = data.imageURL,
+        Description = data.Description,
+        SnapshotID=data.SnapshotID,
+        TrackIDs = data.TrackIDs,
                 };
+                Variables.PlayList tp = DatabaseWorker.GetPlaylist(playlist.Id);
+                if (tp == null || tp.SnapshotID != playlist.SnapshotID)
+                {
+                    DatabaseWorker.SetPlaylist(playlist);
+                    foreach(string id in playlist.TrackIDs.Split(Variables.Seperator))
+                    {
+                        DatabaseWorker.SetTrack(new Variables.Track() {Id = id});
+                    }
+                }
             }
+            //2. Set albums
+            await foreach (var item in SpotifyWorker.GetUserAlbumsAsync())
+            {
+                var data = SpotifyWorker.GetAlbumDataAsync(item.Id).Result;
+                Variables.Album album = new()
+                {
+                    Id = data.Id,
+                    Name = data.name,
+                    ImageURL = data.imageURL,
+                    ArtistIDs = data.artistIDs,
+                };
+                foreach(string id in data.TrackIDs.Split(Variables.Seperator))
+                {
+                    DatabaseWorker.SetTrack(new Variables.Track() {Id = id});
+                }
+                DatabaseWorker.SetAlbum(album);
+            }
+            
         }
     }
 }

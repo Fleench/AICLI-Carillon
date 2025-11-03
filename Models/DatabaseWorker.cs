@@ -65,14 +65,16 @@ namespace Spotify_Playlist_Manager.Models
                                       Id TEXT PRIMARY KEY,               -- Spotify artist ID
                                       Name TEXT,
                                       ImageURL TEXT,
-                                      Generes TEXT
+                                      Genres TEXT                        -- fixed typo: "Generes" → "Genres"
                                   );
-                                  -- Similar Table
+
+                                  -- Similar table
                                   CREATE TABLE IF NOT EXISTS Similar (
-                                      SongID TEXT,               -- Spotify similar ID
-                                      SongID2 TEXT,
-                                  )
+                                      SongID TEXT,                       -- Spotify similar ID
+                                      SongID2 TEXT                       -- removed trailing comma
+                                  );
                               """;
+
 
             cmd.ExecuteNonQuery();
         }
@@ -302,18 +304,18 @@ namespace Spotify_Playlist_Manager.Models
             if (reader.Read())
             {
                 // Safely convert columns to your Track object
-                return new Variables.Track(
-                    name: reader["Name"]?.ToString() ?? "",
-                    id: reader["Id"]?.ToString() ?? "",
-                    albumId: reader["AlbumId"]?.ToString() ?? "",
-                    artistIds: reader["ArtistIds"]?.ToString() ?? "",
-                    discNumber: reader["DiscNumber"] is DBNull ? 0 : Convert.ToInt32(reader["DiscNumber"]),
-                    durationMs: reader["DurationMs"] is DBNull ? 0 : Convert.ToInt32(reader["DurationMs"]),
-                    @explicit: reader["Explicit"] is DBNull ? false : Convert.ToInt32(reader["Explicit"]) == 1,
-                    previewUrl: reader["PreviewUrl"]?.ToString() ?? "",
-                    trackNumber: reader["TrackNumber"] is DBNull ? 0 : Convert.ToInt32(reader["TrackNumber"]),
-                    songId: reader["SongID"]?.ToString() ?? ""
-                );
+                 return new Variables.Track() {
+                    Name = reader["Name"]?.ToString() ?? string.Empty,
+                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                    AlbumId = reader["AlbumId"]?.ToString() ?? string.Empty,
+                    ArtistIds = reader["ArtistIds"]?.ToString() ?? string.Empty,
+                    DiscNumber = reader["DiscNumber"] is DBNull ? 0 : Convert.ToInt32(reader["DiscNumber"]),
+                    DurationMs = reader["DurationMs"] is DBNull ? 0 : Convert.ToInt32(reader["DurationMs"]),
+                    Explicit = reader["Explicit"] is DBNull ? false : Convert.ToInt32(reader["Explicit"]) == 1,
+                    PreviewUrl = reader["PreviewUrl"]?.ToString() ?? string.Empty,
+                    TrackNumber = reader["TrackNumber"] is DBNull ? 0 : Convert.ToInt32(reader["TrackNumber"]),
+                    SongID = reader["SongID"]?.ToString() ?? string.Empty
+                };
             }
 
             return null; // No result found
@@ -331,18 +333,18 @@ namespace Spotify_Playlist_Manager.Models
 
             while (reader.Read())
             {
-                yield return new Variables.Track(
-                    name: reader["Name"]?.ToString() ?? string.Empty,
-                    id: reader["Id"]?.ToString() ?? string.Empty,
-                    albumId: reader["AlbumId"]?.ToString() ?? string.Empty,
-                    artistIds: reader["ArtistIds"]?.ToString() ?? string.Empty,
-                    discNumber: reader["DiscNumber"] is DBNull ? 0 : Convert.ToInt32(reader["DiscNumber"]),
-                    durationMs: reader["DurationMs"] is DBNull ? 0 : Convert.ToInt32(reader["DurationMs"]),
-                    @explicit: reader["Explicit"] is DBNull ? false : Convert.ToInt32(reader["Explicit"]) == 1,
-                    previewUrl: reader["PreviewUrl"]?.ToString() ?? string.Empty,
-                    trackNumber: reader["TrackNumber"] is DBNull ? 0 : Convert.ToInt32(reader["TrackNumber"]),
-                    songId: reader["SongID"]?.ToString() ?? string.Empty
-                );
+                yield return new Variables.Track() {
+                    Name = reader["Name"]?.ToString() ?? string.Empty,
+                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                    AlbumId = reader["AlbumId"]?.ToString() ?? string.Empty,
+                    ArtistIds = reader["ArtistIds"]?.ToString() ?? string.Empty,
+                    DiscNumber = reader["DiscNumber"] is DBNull ? 0 : Convert.ToInt32(reader["DiscNumber"]),
+                    DurationMs = reader["DurationMs"] is DBNull ? 0 : Convert.ToInt32(reader["DurationMs"]),
+                    Explicit = reader["Explicit"] is DBNull ? false : Convert.ToInt32(reader["Explicit"]) == 1,
+                    PreviewUrl = reader["PreviewUrl"]?.ToString() ?? string.Empty,
+                    TrackNumber = reader["TrackNumber"] is DBNull ? 0 : Convert.ToInt32(reader["TrackNumber"]),
+                    SongID = reader["SongID"]?.ToString() ?? string.Empty
+                };
             }
         }
 
@@ -369,7 +371,7 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Name, ImageURL, Generes FROM Artists WHERE Id = $id LIMIT 1;";
+            cmd.CommandText = "SELECT Id, Name, ImageURL, Genres FROM Artists WHERE Id = $id LIMIT 1;";
             cmd.Parameters.AddWithValue("$id", id);
 
             using var reader = cmd.ExecuteReader();
