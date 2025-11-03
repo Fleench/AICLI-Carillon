@@ -1,5 +1,5 @@
 /* File: Variables.cs
- * Author: Glenn Sutherland
+ * Author: Glenn Sutherland, ChatGPT Codex
  * Description: Variables and Classes used by the program
  */
 using System;
@@ -45,6 +45,23 @@ namespace Spotify_Playlist_Manager.Models
             public string Description;
             public string SnapshotID;
             public string TrackIDs;
+
+            /// <summary>
+            /// Checks if essential data fields for the playlist are missing or invalid.
+            /// </summary>
+            /// <returns>True if any essential data is missing; otherwise, false.</returns>
+            public bool MissingInfo()
+            {
+                if (string.IsNullOrEmpty(Name) ||
+                    string.IsNullOrEmpty(Id) ||
+                    string.IsNullOrEmpty(SnapshotID) ||
+                    string.IsNullOrEmpty(TrackIDs))
+                {
+                    return true;
+                }
+
+                return false;
+            }
         }
         public class Album
         {
@@ -53,6 +70,23 @@ namespace Spotify_Playlist_Manager.Models
             public string Id;
             public string ArtistIDs;
             public string TrackIDs;
+
+            /// <summary>
+            /// Checks if essential data fields for the album are missing or invalid.
+            /// </summary>
+            /// <returns>True if any essential data is missing; otherwise, false.</returns>
+            public bool MissingInfo()
+            {
+                if (string.IsNullOrEmpty(Name) ||
+                    string.IsNullOrEmpty(Id) ||
+                    string.IsNullOrEmpty(ArtistIDs) ||
+                    string.IsNullOrEmpty(TrackIDs))
+                {
+                    return true;
+                }
+
+                return false;
+            }
         }
 
         public class Track
@@ -78,7 +112,7 @@ namespace Spotify_Playlist_Manager.Models
             /// Checks if essential data fields for the track are missing or invalid.
             /// </summary>
             /// <returns>True if any essential data is missing; otherwise, false.</returns>
-            public bool MissingData()
+            public bool MissingInfo()
             {
                 // Check for null or empty strings in essential fields
                 if (string.IsNullOrEmpty(Name) ||
@@ -101,6 +135,15 @@ namespace Spotify_Playlist_Manager.Models
                 // If all checks pass, the data is not considered 'missing'
                 return false;
             }
+
+            /// <summary>
+            /// Legacy wrapper maintained for backwards compatibility.
+            /// </summary>
+            /// <returns>True if any essential data is missing; otherwise, false.</returns>
+            public bool MissingData()
+            {
+                return MissingInfo();
+            }
         }
 
         public class Artist
@@ -109,6 +152,21 @@ namespace Spotify_Playlist_Manager.Models
             public string ImageURL;
             public string Id;
             public string Generes;
+
+            /// <summary>
+            /// Checks if essential data fields for the artist are missing or invalid.
+            /// </summary>
+            /// <returns>True if any essential data is missing; otherwise, false.</returns>
+            public bool MissingInfo()
+            {
+                if (string.IsNullOrEmpty(Name) ||
+                    string.IsNullOrEmpty(Id))
+                {
+                    return true;
+                }
+
+                return false;
+            }
         }
         public static class Settings
         {
