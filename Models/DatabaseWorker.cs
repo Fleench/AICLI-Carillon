@@ -382,7 +382,7 @@ namespace Spotify_Playlist_Manager.Models
             cmd.Parameters.AddWithValue("$id", artist.Id ?? string.Empty);
             cmd.Parameters.AddWithValue("$name", artist.Name ?? string.Empty);
             cmd.Parameters.AddWithValue("$imageUrl", artist.ImageURL ?? string.Empty);
-            cmd.Parameters.AddWithValue("$generes", artist.Generes ?? string.Empty);
+            cmd.Parameters.AddWithValue("$generes", artist.Genres ?? string.Empty);
 
             cmd.ExecuteNonQuery();
         }
@@ -405,7 +405,7 @@ namespace Spotify_Playlist_Manager.Models
                     Id = reader["Id"]?.ToString() ?? string.Empty,
                     Name = reader["Name"]?.ToString() ?? string.Empty,
                     ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
-                    Generes = reader["Generes"]?.ToString() ?? string.Empty
+                    Genres = reader["Generes"]?.ToString() ?? string.Empty
                 };
             }
 
@@ -429,7 +429,7 @@ namespace Spotify_Playlist_Manager.Models
                     Id = reader["Id"]?.ToString() ?? string.Empty,
                     Name = reader["Name"]?.ToString() ?? string.Empty,
                     ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
-                    Generes = reader["Generes"]?.ToString() ?? string.Empty
+                    Genres = reader["Generes"]?.ToString() ?? string.Empty
                 };
             }
         }

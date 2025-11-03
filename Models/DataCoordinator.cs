@@ -95,7 +95,9 @@ namespace Spotify_Playlist_Manager.Models
             //update track data
             foreach (var item in DatabaseWorker.GetAllTracks())
             {
-                if (item.MissingData())
+                string albumID = item.AlbumId;
+                string[] artistIDs = item.ArtistIds.Split(Variables.Seperator);
+                if (item.MissingInfo())
                 {
                     var data = SpotifyWorker.GetSongDataAsync(item.Id).Result;
                     DatabaseWorker.SetTrack(new Variables.Track()
@@ -110,6 +112,49 @@ namespace Spotify_Playlist_Manager.Models
                         DurationMs = data.durrationms,
                         PreviewUrl = data.previewURL,
                         SongID = item.SongID
+                    });
+                    albumID = data.albumID;
+                    artistIDs = data.artistIDs.Split(Variables.Seperator);
+                }
+
+                DatabaseWorker.SetAlbum(new Variables.Album() {Id= albumID });
+                foreach (string id in artistIDs)
+                {
+                    DatabaseWorker.SetArtist(new Variables.Artist(){Id = id});
+                }
+            }
+            foreach (var item in DatabaseWorker.GetAllAlbums())
+            {
+                string[] artistIDs = item.ArtistIDs.Split(Variables.Seperator);
+                if (item.MissingInfo())
+                {
+                    var data = SpotifyWorker.GetAlbumDataAsync(item.Id).Result;
+                    DatabaseWorker.SetAlbum(new Variables.Album()
+                    {
+                        Id = item.Id,
+                        Name = data.name,
+                        ImageURL = data.imageURL,
+                        ArtistIDs = data.artistIDs
+                    });
+                    artistIDs = data.artistIDs.Split(Variables.Seperator);
+                }
+                foreach (string id in artistIDs)
+                {
+                    DatabaseWorker.SetArtist(new Variables.Artist(){Id = id});
+                }
+            }
+
+            foreach (var item in DatabaseWorker.GetAllArtists())
+            {
+                if (item.MissingInfo())
+                {
+                    var data = SpotifyWorker.GetArtistDataAsync(item.Id).Result;
+                    DatabaseWorker.SetArtist(new Variables.Artist()
+                    {
+                        Id = item.Id,
+                        Genres = data.Genres,
+                        Name = data.Name,
+                        ImageURL = data.ImageUrl
                     });
                 }
             }

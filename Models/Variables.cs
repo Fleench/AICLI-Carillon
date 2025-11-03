@@ -151,7 +151,7 @@ namespace Spotify_Playlist_Manager.Models
             public string Name;
             public string ImageURL;
             public string Id;
-            public string Generes;
+            public string Genres;
 
             /// <summary>
             /// Checks if essential data fields for the artist are missing or invalid.
