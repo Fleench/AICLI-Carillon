@@ -6,12 +6,13 @@
 using SQLitePCL;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Spotify_Playlist_Manager.Models;
 namespace Spotify_Playlist_Manager.Models
 {
     static class DataCoordinator
     {
-        public async static void Sync()
+        public static async Task Sync()
         {
             /* Playlists → Playlist Tracks
 
@@ -50,6 +51,7 @@ namespace Spotify_Playlist_Manager.Models
              //1. Set playlists
             await foreach(var item in SpotifyWorker.GetUserPlaylistsAsync())
             {
+                //Console.WriteLine($"{item.Id} - {item.Name}");
                 var data = await SpotifyWorker.GetPlaylistDataAsync(item.Id);
                 Variables.PlayList playlist = new()
                 {
@@ -70,28 +72,35 @@ namespace Spotify_Playlist_Manager.Models
                     }
                 }
             }
+            Console.WriteLine("Got Playlists");
             //2. Set albums
             await foreach (var item in SpotifyWorker.GetUserAlbumsAsync())
             {
-                var data = await SpotifyWorker.GetAlbumDataAsync(item.Id);
-                Variables.Album album = new()
+                if (DatabaseWorker.GetAlbum(item.Id) is null)
                 {
-                    Id = data.Id,
-                    Name = data.name,
-                    ImageURL = data.imageURL,
-                    ArtistIDs = data.artistIDs,
-                };
-                foreach (string id in SplitIds(data.TrackIDs, Variables.Seperator))
-                {
-                    await DatabaseWorker.SetTrack(new Variables.Track() {Id = id});
+                    var data = await SpotifyWorker.GetAlbumDataAsync(item.Id);
+                    Variables.Album album = new()
+                    {
+                        Id = data.Id,
+                        Name = data.name,
+                        ImageURL = data.imageURL,
+                        ArtistIDs = data.artistIDs,
+                    };
+                    foreach (string id in SplitIds(data.TrackIDs, Variables.Seperator))
+                    {
+                        await DatabaseWorker.SetTrack(new Variables.Track() {Id = id});
+                    }
+                    await DatabaseWorker.SetAlbum(album); 
                 }
-                await DatabaseWorker.SetAlbum(album);
+                
             }
+            Console.WriteLine("Got Albums");
             //3. set liked songs
             await foreach (var item in SpotifyWorker.GetLikedSongsAsync())
             {
                 await DatabaseWorker.SetTrack(new Variables.Track() {Id = item.Id});
             }
+            Console.WriteLine("Got Liked Songs");
             //update track data
             foreach (var item in DatabaseWorker.GetAllTracks())
             {
@@ -123,6 +132,7 @@ namespace Spotify_Playlist_Manager.Models
                     await DatabaseWorker.SetArtist(new Variables.Artist(){Id = id});
                 }
             }
+            Console.WriteLine("Got Track Dara");
             foreach (var item in DatabaseWorker.GetAllAlbums())
             {
                 var artistIDs = SplitIds(item.ArtistIDs, Variables.Seperator);
@@ -143,7 +153,7 @@ namespace Spotify_Playlist_Manager.Models
                     await DatabaseWorker.SetArtist(new Variables.Artist(){Id = id});
                 }
             }
-
+            Console.WriteLine("Got Album Data");
             foreach (var item in DatabaseWorker.GetAllArtists())
             {
                 if (item.MissingInfo())
@@ -158,6 +168,7 @@ namespace Spotify_Playlist_Manager.Models
                     });
                 }
             }
+            Console.WriteLine("Got Artist Data");
         }
 
         private static List<string> SplitIds(string? ids, params string[] separators)

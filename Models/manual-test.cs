@@ -62,7 +62,7 @@ public class TempProgram
         }
 
         Console.WriteLine($"ClientID: {clientID}, ClientSecret: {clientSecret}");
-        SpotifyWorker.Init(clientID, clientSecret,token, refreshToken);
+        SpotifyWorker.Init(clientID, clientSecret, token, refreshToken);
         SpotifyWorker_Old.Init(clientID, clientSecret, token, refreshToken);
         var (at, rt) = await SpotifyWorker_Old.AuthenticateAsync();
         FileHelper.ModifySpecificLine(myFile, 4, clientID);
@@ -81,8 +81,38 @@ public class TempProgram
         IEnumerable<string> list = new[] { st };
         FileHelper.CreateOrOverwriteFile(data, list);
         FileHelper.ModifySpecificLine(data, 1, st);*/
-        DataCoordinator.Sync();
+        Console.WriteLine("Sync Started");
+        var timerTask = Task.Run(async () =>
+        {
+            int seconds = 0;
+            while (true)
+            {
+                seconds++;
+                TimeSpan span = TimeSpan.FromSeconds(seconds);
+                string disp = $"";
+                Console.Write($"\r {span}");
+                await Task.Delay(1000);
+            }
+        });
+        try
+        {
+            //await DataCoordinator.Sync();
 
+        }
+        catch (SpotifyAPI.Web.APITooManyRequestsException e)
+        {
+            Console.WriteLine($"\nPlease wait for {e.RetryAfter} before fucking syncing again");
+            Console.WriteLine("Sync Completed");
+
+        }
+
+        List<object> tracks = new();
+        foreach (var item in DatabaseWorker.GetAllTracks())
+        {
+                tracks.Add(item);
+                //Console.WriteLine("IDK");
+        }
+        Console.WriteLine($"You have {tracks.Count} items");
     }
 
     public static async Task<(string playlistID, string trackID, string albumID, string artistID)> Getabitofdata()
