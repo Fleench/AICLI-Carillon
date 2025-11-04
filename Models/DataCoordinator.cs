@@ -1,5 +1,5 @@
 /* File: DataCoordinator.cs
- * Author: Glenn Sutherland
+ * Author: Glenn Sutherland, ChatGPT Codex
  * Description: Connects the SpotifyWorker to the DatabaseWorker
  */
 
@@ -64,7 +64,7 @@ namespace Spotify_Playlist_Manager.Models
                 if (tp == null || tp.SnapshotID != playlist.SnapshotID)
                 {
                     DatabaseWorker.SetPlaylist(playlist);
-                    foreach(string id in playlist.TrackIDs.Split(Variables.Seperator))
+                    foreach (string id in SplitIds(playlist.TrackIDs, Variables.Seperator))
                     {
                         DatabaseWorker.SetTrack(new Variables.Track() {Id = id});
                     }
@@ -81,7 +81,7 @@ namespace Spotify_Playlist_Manager.Models
                     ImageURL = data.imageURL,
                     ArtistIDs = data.artistIDs,
                 };
-                foreach(string id in data.TrackIDs.Split(Variables.Seperator))
+                foreach (string id in SplitIds(data.TrackIDs, Variables.Seperator))
                 {
                     DatabaseWorker.SetTrack(new Variables.Track() {Id = id});
                 }
@@ -96,7 +96,7 @@ namespace Spotify_Playlist_Manager.Models
             foreach (var item in DatabaseWorker.GetAllTracks())
             {
                 string albumID = item.AlbumId;
-                string[] artistIDs = item.ArtistIds.Split(Variables.Seperator);
+                var artistIDs = SplitArtistIds(item.ArtistIds);
                 if (item.MissingInfo())
                 {
                     var data = SpotifyWorker.GetSongDataAsync(item.Id).Result;
@@ -114,7 +114,7 @@ namespace Spotify_Playlist_Manager.Models
                         SongID = item.SongID
                     });
                     albumID = data.albumID;
-                    artistIDs = data.artistIDs.Split(Variables.Seperator);
+                    artistIDs = SplitArtistIds(data.artistIDs);
                 }
 
                 DatabaseWorker.SetAlbum(new Variables.Album() {Id= albumID });
@@ -125,7 +125,7 @@ namespace Spotify_Playlist_Manager.Models
             }
             foreach (var item in DatabaseWorker.GetAllAlbums())
             {
-                string[] artistIDs = item.ArtistIDs.Split(Variables.Seperator);
+                var artistIDs = SplitIds(item.ArtistIDs, Variables.Seperator);
                 if (item.MissingInfo())
                 {
                     var data = SpotifyWorker.GetAlbumDataAsync(item.Id).Result;
@@ -136,7 +136,7 @@ namespace Spotify_Playlist_Manager.Models
                         ImageURL = data.imageURL,
                         ArtistIDs = data.artistIDs
                     });
-                    artistIDs = data.artistIDs.Split(Variables.Seperator);
+                    artistIDs = SplitIds(data.artistIDs, Variables.Seperator);
                 }
                 foreach (string id in artistIDs)
                 {
@@ -158,6 +158,33 @@ namespace Spotify_Playlist_Manager.Models
                     });
                 }
             }
+        }
+
+        private static List<string> SplitIds(string? ids, params string[] separators)
+        {
+            if (string.IsNullOrWhiteSpace(ids))
+            {
+                return new List<string>();
+            }
+
+            var parts = ids.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+            List<string> results = new();
+
+            foreach (var part in parts)
+            {
+                var trimmed = part.Trim();
+                if (!string.IsNullOrEmpty(trimmed))
+                {
+                    results.Add(trimmed);
+                }
+            }
+
+            return results;
+        }
+
+        private static List<string> SplitArtistIds(string? ids)
+        {
+            return SplitIds(ids, "::", Variables.Seperator);
         }
     }
 }
