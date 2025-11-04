@@ -5,6 +5,8 @@
 using Spotify_Playlist_Manager.Models;
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 namespace Spotify_Playlist_Manager.Models
 {
@@ -12,6 +14,7 @@ namespace Spotify_Playlist_Manager.Models
     public static class DatabaseWorker
     {
         private static string _dbPath = Variables.DatabasePath;
+        private static readonly SemaphoreSlim DbWriteLock = new(1, 1);
 
         public static void Init()
         {
@@ -19,6 +22,8 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
+            cmd.CommandText = "PRAGMA journal_mode=WAL;";
+            cmd.ExecuteNonQuery();
 
             cmd.CommandText = """
                                   -- Settings table
@@ -79,15 +84,23 @@ namespace Spotify_Playlist_Manager.Models
         }
 
 
-        public static void SetSetting(string key, string value)
+        public static async Task SetSetting(string key, string value)
         {
-            using var conn = new SqliteConnection($"Data Source={_dbPath}");
-            conn.Open();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "INSERT OR REPLACE INTO Settings (Key, Value) VALUES ($key, $value);";
-            cmd.Parameters.AddWithValue("$key", key);
-            cmd.Parameters.AddWithValue("$value", value);
-            cmd.ExecuteNonQuery();
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "INSERT OR REPLACE INTO Settings (Key, Value) VALUES ($key, $value);";
+                cmd.Parameters.AddWithValue("$key", key);
+                cmd.Parameters.AddWithValue("$value", value);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
         }
 
         public static string? GetSetting(string key)
@@ -119,23 +132,31 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
-        public static void SetPlaylist(Variables.PlayList playlist)
+        public static async Task SetPlaylist(Variables.PlayList playlist)
         {
-            using var conn = new SqliteConnection($"Data Source={_dbPath}");
-            conn.Open();
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
 
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT OR REPLACE INTO Playlists (Id, Name, ImageURL, Description, SnapshotID, TrackIDs)
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"INSERT OR REPLACE INTO Playlists (Id, Name, ImageURL, Description, SnapshotID, TrackIDs)
                                 VALUES ($id, $name, $imageUrl, $description, $snapshotId, $trackIds);";
 
-            cmd.Parameters.AddWithValue("$id", playlist.Id ?? string.Empty);
-            cmd.Parameters.AddWithValue("$name", playlist.Name ?? string.Empty);
-            cmd.Parameters.AddWithValue("$imageUrl", playlist.ImageURL ?? string.Empty);
-            cmd.Parameters.AddWithValue("$description", playlist.Description ?? string.Empty);
-            cmd.Parameters.AddWithValue("$snapshotId", playlist.SnapshotID ?? string.Empty);
-            cmd.Parameters.AddWithValue("$trackIds", playlist.TrackIDs ?? string.Empty);
+                cmd.Parameters.AddWithValue("$id", playlist.Id ?? string.Empty);
+                cmd.Parameters.AddWithValue("$name", playlist.Name ?? string.Empty);
+                cmd.Parameters.AddWithValue("$imageUrl", playlist.ImageURL ?? string.Empty);
+                cmd.Parameters.AddWithValue("$description", playlist.Description ?? string.Empty);
+                cmd.Parameters.AddWithValue("$snapshotId", playlist.SnapshotID ?? string.Empty);
+                cmd.Parameters.AddWithValue("$trackIds", playlist.TrackIDs ?? string.Empty);
 
-            cmd.ExecuteNonQuery();
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
         }
 
         public static Variables.PlayList? GetPlaylist(string id)
@@ -189,21 +210,29 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
-        public static void SetAlbum(Variables.Album album)
+        public static async Task SetAlbum(Variables.Album album)
         {
-            using var conn = new SqliteConnection($"Data Source={_dbPath}");
-            conn.Open();
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
 
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT OR REPLACE INTO Albums (Id, Name, ImageURL, ArtistIDs)
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"INSERT OR REPLACE INTO Albums (Id, Name, ImageURL, ArtistIDs)
                                 VALUES ($id, $name, $imageUrl, $artistIds);";
 
-            cmd.Parameters.AddWithValue("$id", album.Id ?? string.Empty);
-            cmd.Parameters.AddWithValue("$name", album.Name ?? string.Empty);
-            cmd.Parameters.AddWithValue("$imageUrl", album.ImageURL ?? string.Empty);
-            cmd.Parameters.AddWithValue("$artistIds", album.ArtistIDs ?? string.Empty);
+                cmd.Parameters.AddWithValue("$id", album.Id ?? string.Empty);
+                cmd.Parameters.AddWithValue("$name", album.Name ?? string.Empty);
+                cmd.Parameters.AddWithValue("$imageUrl", album.ImageURL ?? string.Empty);
+                cmd.Parameters.AddWithValue("$artistIds", album.ArtistIDs ?? string.Empty);
 
-            cmd.ExecuteNonQuery();
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
         }
 
         public static Variables.Album? GetAlbum(string id)
@@ -279,27 +308,35 @@ namespace Spotify_Playlist_Manager.Models
             return string.Join(Variables.Seperator, trackIds);
         }
 
-        public static void SetTrack(Variables.Track track)
+        public static async Task SetTrack(Variables.Track track)
         {
-            using var conn = new SqliteConnection($"Data Source={_dbPath}");
-            conn.Open();
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
 
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT OR REPLACE INTO Tracks (Id, SongID, Name, AlbumId, ArtistIds, DiscNumber, DurationMs, Explicit, PreviewUrl, TrackNumber)
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"INSERT OR REPLACE INTO Tracks (Id, SongID, Name, AlbumId, ArtistIds, DiscNumber, DurationMs, Explicit, PreviewUrl, TrackNumber)
                                 VALUES ($id, $songId, $name, $albumId, $artistIds, $discNumber, $durationMs, $explicit, $previewUrl, $trackNumber);";
 
-            cmd.Parameters.AddWithValue("$id", track.Id ?? string.Empty);
-            cmd.Parameters.AddWithValue("$songId", track.SongID ?? string.Empty);
-            cmd.Parameters.AddWithValue("$name", track.Name ?? string.Empty);
-            cmd.Parameters.AddWithValue("$albumId", track.AlbumId ?? string.Empty);
-            cmd.Parameters.AddWithValue("$artistIds", track.ArtistIds ?? string.Empty);
-            cmd.Parameters.AddWithValue("$discNumber", track.DiscNumber);
-            cmd.Parameters.AddWithValue("$durationMs", track.DurationMs);
-            cmd.Parameters.AddWithValue("$explicit", track.Explicit ? 1 : 0);
-            cmd.Parameters.AddWithValue("$previewUrl", track.PreviewUrl ?? string.Empty);
-            cmd.Parameters.AddWithValue("$trackNumber", track.TrackNumber);
+                cmd.Parameters.AddWithValue("$id", track.Id ?? string.Empty);
+                cmd.Parameters.AddWithValue("$songId", track.SongID ?? string.Empty);
+                cmd.Parameters.AddWithValue("$name", track.Name ?? string.Empty);
+                cmd.Parameters.AddWithValue("$albumId", track.AlbumId ?? string.Empty);
+                cmd.Parameters.AddWithValue("$artistIds", track.ArtistIds ?? string.Empty);
+                cmd.Parameters.AddWithValue("$discNumber", track.DiscNumber);
+                cmd.Parameters.AddWithValue("$durationMs", track.DurationMs);
+                cmd.Parameters.AddWithValue("$explicit", track.Explicit ? 1 : 0);
+                cmd.Parameters.AddWithValue("$previewUrl", track.PreviewUrl ?? string.Empty);
+                cmd.Parameters.AddWithValue("$trackNumber", track.TrackNumber);
 
-            cmd.ExecuteNonQuery();
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
         }
 
         public static Variables.Track GetTrack(string id)
@@ -370,21 +407,29 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
-        public static void SetArtist(Variables.Artist artist)
+        public static async Task SetArtist(Variables.Artist artist)
         {
-            using var conn = new SqliteConnection($"Data Source={_dbPath}");
-            conn.Open();
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
 
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT OR REPLACE INTO Artists (Id, Name, ImageURL, Genres)
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"INSERT OR REPLACE INTO Artists (Id, Name, ImageURL, Genres)
                                 VALUES ($id, $name, $imageUrl, $genres);";
 
-            cmd.Parameters.AddWithValue("$id", artist.Id ?? string.Empty);
-            cmd.Parameters.AddWithValue("$name", artist.Name ?? string.Empty);
-            cmd.Parameters.AddWithValue("$imageUrl", artist.ImageURL ?? string.Empty);
-            cmd.Parameters.AddWithValue("$genres", artist.Genres ?? string.Empty);
+                cmd.Parameters.AddWithValue("$id", artist.Id ?? string.Empty);
+                cmd.Parameters.AddWithValue("$name", artist.Name ?? string.Empty);
+                cmd.Parameters.AddWithValue("$imageUrl", artist.ImageURL ?? string.Empty);
+                cmd.Parameters.AddWithValue("$genres", artist.Genres ?? string.Empty);
 
-            cmd.ExecuteNonQuery();
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
         }
 
         public static Variables.Artist? GetArtist(string id)
@@ -434,18 +479,26 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
-        public static void SetSimilar(string songId, string songId2)
+        public static async Task SetSimilar(string songId, string songId2)
         {
-            using var conn = new SqliteConnection($"Data Source={_dbPath}");
-            conn.Open();
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
 
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT INTO Similar (SongID, SongID2) VALUES ($songId, $songId2);";
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"INSERT INTO Similar (SongID, SongID2) VALUES ($songId, $songId2);";
 
-            cmd.Parameters.AddWithValue("$songId", songId);
-            cmd.Parameters.AddWithValue("$songId2", songId2);
+                cmd.Parameters.AddWithValue("$songId", songId);
+                cmd.Parameters.AddWithValue("$songId2", songId2);
 
-            cmd.ExecuteNonQuery();
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
         }
 
         public static (string SongId, string SongId2)? GetSimilar(string songId, string songId2)
