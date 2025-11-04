@@ -50,7 +50,7 @@ namespace Spotify_Playlist_Manager.Models
              //1. Set playlists
             await foreach(var item in SpotifyWorker.GetUserPlaylistsAsync())
             {
-                var data = SpotifyWorker.GetPlaylistDataAsync(item.Id).Result;
+                var data = await SpotifyWorker.GetPlaylistDataAsync(item.Id);
                 Variables.PlayList playlist = new()
                 {
                     Id = data.Id,
@@ -63,17 +63,17 @@ namespace Spotify_Playlist_Manager.Models
                 Variables.PlayList tp = DatabaseWorker.GetPlaylist(playlist.Id);
                 if (tp == null || tp.SnapshotID != playlist.SnapshotID)
                 {
-                    DatabaseWorker.SetPlaylist(playlist);
+                    await DatabaseWorker.SetPlaylist(playlist);
                     foreach (string id in SplitIds(playlist.TrackIDs, Variables.Seperator))
                     {
-                        DatabaseWorker.SetTrack(new Variables.Track() {Id = id});
+                        await DatabaseWorker.SetTrack(new Variables.Track() {Id = id});
                     }
                 }
             }
             //2. Set albums
             await foreach (var item in SpotifyWorker.GetUserAlbumsAsync())
             {
-                var data = SpotifyWorker.GetAlbumDataAsync(item.Id).Result;
+                var data = await SpotifyWorker.GetAlbumDataAsync(item.Id);
                 Variables.Album album = new()
                 {
                     Id = data.Id,
@@ -83,14 +83,14 @@ namespace Spotify_Playlist_Manager.Models
                 };
                 foreach (string id in SplitIds(data.TrackIDs, Variables.Seperator))
                 {
-                    DatabaseWorker.SetTrack(new Variables.Track() {Id = id});
+                    await DatabaseWorker.SetTrack(new Variables.Track() {Id = id});
                 }
-                DatabaseWorker.SetAlbum(album);
+                await DatabaseWorker.SetAlbum(album);
             }
             //3. set liked songs
             await foreach (var item in SpotifyWorker.GetLikedSongsAsync())
-            { 
-                DatabaseWorker.SetTrack(new Variables.Track() {Id = item.Id});
+            {
+                await DatabaseWorker.SetTrack(new Variables.Track() {Id = item.Id});
             }
             //update track data
             foreach (var item in DatabaseWorker.GetAllTracks())
@@ -99,8 +99,8 @@ namespace Spotify_Playlist_Manager.Models
                 var artistIDs = SplitArtistIds(item.ArtistIds);
                 if (item.MissingInfo())
                 {
-                    var data = SpotifyWorker.GetSongDataAsync(item.Id).Result;
-                    DatabaseWorker.SetTrack(new Variables.Track()
+                    var data = await SpotifyWorker.GetSongDataAsync(item.Id);
+                    await DatabaseWorker.SetTrack(new Variables.Track()
                     {
                         Id = item.Id,
                         Name = data.name,
@@ -117,10 +117,10 @@ namespace Spotify_Playlist_Manager.Models
                     artistIDs = SplitArtistIds(data.artistIDs);
                 }
 
-                DatabaseWorker.SetAlbum(new Variables.Album() {Id= albumID });
+                await DatabaseWorker.SetAlbum(new Variables.Album() {Id= albumID });
                 foreach (string id in artistIDs)
                 {
-                    DatabaseWorker.SetArtist(new Variables.Artist(){Id = id});
+                    await DatabaseWorker.SetArtist(new Variables.Artist(){Id = id});
                 }
             }
             foreach (var item in DatabaseWorker.GetAllAlbums())
@@ -128,8 +128,8 @@ namespace Spotify_Playlist_Manager.Models
                 var artistIDs = SplitIds(item.ArtistIDs, Variables.Seperator);
                 if (item.MissingInfo())
                 {
-                    var data = SpotifyWorker.GetAlbumDataAsync(item.Id).Result;
-                    DatabaseWorker.SetAlbum(new Variables.Album()
+                    var data = await SpotifyWorker.GetAlbumDataAsync(item.Id);
+                    await DatabaseWorker.SetAlbum(new Variables.Album()
                     {
                         Id = item.Id,
                         Name = data.name,
@@ -140,7 +140,7 @@ namespace Spotify_Playlist_Manager.Models
                 }
                 foreach (string id in artistIDs)
                 {
-                    DatabaseWorker.SetArtist(new Variables.Artist(){Id = id});
+                    await DatabaseWorker.SetArtist(new Variables.Artist(){Id = id});
                 }
             }
 
@@ -148,8 +148,8 @@ namespace Spotify_Playlist_Manager.Models
             {
                 if (item.MissingInfo())
                 {
-                    var data = SpotifyWorker.GetArtistDataAsync(item.Id).Result;
-                    DatabaseWorker.SetArtist(new Variables.Artist()
+                    var data = await SpotifyWorker.GetArtistDataAsync(item.Id);
+                    await DatabaseWorker.SetArtist(new Variables.Artist()
                     {
                         Id = item.Id,
                         Genres = data.Genres,
