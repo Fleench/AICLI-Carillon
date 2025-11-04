@@ -376,13 +376,13 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT OR REPLACE INTO Artists (Id, Name, ImageURL, Generes)
-                                VALUES ($id, $name, $imageUrl, $generes);";
+            cmd.CommandText = @"INSERT OR REPLACE INTO Artists (Id, Name, ImageURL, Genres)
+                                VALUES ($id, $name, $imageUrl, $genres);";
 
             cmd.Parameters.AddWithValue("$id", artist.Id ?? string.Empty);
             cmd.Parameters.AddWithValue("$name", artist.Name ?? string.Empty);
             cmd.Parameters.AddWithValue("$imageUrl", artist.ImageURL ?? string.Empty);
-            cmd.Parameters.AddWithValue("$generes", artist.Genres ?? string.Empty);
+            cmd.Parameters.AddWithValue("$genres", artist.Genres ?? string.Empty);
 
             cmd.ExecuteNonQuery();
         }
@@ -405,7 +405,7 @@ namespace Spotify_Playlist_Manager.Models
                     Id = reader["Id"]?.ToString() ?? string.Empty,
                     Name = reader["Name"]?.ToString() ?? string.Empty,
                     ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
-                    Genres = reader["Generes"]?.ToString() ?? string.Empty
+                    Genres = reader["Genres"]?.ToString() ?? string.Empty
                 };
             }
 
@@ -418,7 +418,7 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Name, ImageURL, Generes FROM Artists;";
+            cmd.CommandText = "SELECT Id, Name, ImageURL, Genres FROM Artists;";
 
             using var reader = cmd.ExecuteReader();
 
@@ -429,7 +429,7 @@ namespace Spotify_Playlist_Manager.Models
                     Id = reader["Id"]?.ToString() ?? string.Empty,
                     Name = reader["Name"]?.ToString() ?? string.Empty,
                     ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
-                    Genres = reader["Generes"]?.ToString() ?? string.Empty
+                    Genres = reader["Genres"]?.ToString() ?? string.Empty
                 };
             }
         }
