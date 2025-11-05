@@ -94,7 +94,8 @@ public class TempProgram
                 await Task.Delay(1000);
             }
         });
-        try
+        //await DataCoordinator.Sync();
+        /*try
         {
             //await DataCoordinator.Sync();
 
@@ -105,15 +106,18 @@ public class TempProgram
             Console.WriteLine("Sync Completed");
 
         }
-
+        */
         List<object> tracks = new();
         foreach (var item in DatabaseWorker.GetAllTracks())
         {
                 tracks.Add(item);
                 //Console.WriteLine("IDK");
         }
+        var total =  DatabaseWorker.GetAllTracks();
+        Console.WriteLine();
+        Console.WriteLine($"Total Tracks: {total.Count()}");
         Console.WriteLine($"You have {tracks.Count} items");
-        Theme theme = new();
+        /*Theme theme = new();
         Console.WriteLine(theme);
         /*Console.Read();
         theme.Swap();
@@ -124,7 +128,7 @@ public class TempProgram
         Console.Read();
         theme.Swap();
         Console.WriteLine(theme);*/
-        
+
     }
 
     public static async Task<(string playlistID, string trackID, string albumID, string artistID)> Getabitofdata()
