@@ -1,5 +1,5 @@
     /* File: CacheWorker.cs
-     * Author: Glenn Sutherland
+     * Author: Glenn Sutherland, ChatGPT Codex
      * Description: A basic manager for the local cache of images of items from spotify.
      */
     using System;
@@ -11,29 +11,57 @@
         public static class CacheWorker
         {
             public static string Cachepath = Variables.CachePath;
-            public static async Task DownloadImageAsync(string url, ImageType type, string itemId)
+            public static async Task<string?> DownloadImageAsync(string url, ImageType type, string itemId)
             {
-                using HttpClient client = new();
-    
-                // Use HttpCompletionOption.ResponseHeadersRead to get headers before downloading the full content
-                var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-                response.EnsureSuccessStatusCode();
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    return null;
+                }
 
-                // 1. Get the MIME type from the Content-Type header
-                string contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+                try
+                {
+                    Directory.CreateDirectory(Cachepath);
+                }
+                catch (Exception directoryException) when (directoryException is IOException or UnauthorizedAccessException)
+                {
+                    Console.Error.WriteLine($"Failed to create cache directory '{Cachepath}': {directoryException}");
+                    return null;
+                }
 
-                // 2. Map the MIME type to a file extension
-                string extension = GetFileExtensionFromMimeType(contentType);
-    
-                // 3. Construct the full path with the determined extension
-                string fileName = type.ToString() + "_" + itemId + extension;
-                string path = Path.Combine(Cachepath, fileName);
-    
-                Console.WriteLine(path);
+                try
+                {
+                    using HttpClient client = new();
 
-                // 4. Download and save the content (response.Content is still available)
-                await using var fileStream = new FileStream(path, FileMode.Create);
-                await response.Content.CopyToAsync(fileStream);
+                    using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+                    response.EnsureSuccessStatusCode();
+
+                    string contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+                    string extension = GetFileExtensionFromMimeType(contentType);
+                    string fileName = type.ToString() + "_" + itemId + extension;
+                    string path = Path.Combine(Cachepath, fileName);
+
+                    try
+                    {
+                        await using var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+                        await response.Content.CopyToAsync(fileStream).ConfigureAwait(false);
+                        return path;
+                    }
+                    catch (Exception fileException) when (fileException is IOException or UnauthorizedAccessException)
+                    {
+                        Console.Error.WriteLine($"Failed to write cached image '{path}': {fileException}");
+                        return null;
+                    }
+                }
+                catch (HttpRequestException httpException)
+                {
+                    Console.Error.WriteLine($"Failed to download image from '{url}': {httpException}");
+                    return null;
+                }
+                catch (TaskCanceledException canceledException)
+                {
+                    Console.Error.WriteLine($"Image download timed out for '{url}': {canceledException}");
+                    return null;
+                }
             }
             private static string GetFileExtensionFromMimeType(string mimeType)
             {
@@ -64,32 +92,30 @@
                 Playlist,
             }
 
-            public static string GetImagePath(ImageType type, string itemId)
+            public static string? GetImagePath(ImageType type, string itemId)
             {
-                // 1. Create the base filename (without extension)
-                string baseFileName = type.ToString() + "_" + itemId;
-                string searchPattern = baseFileName + ".*"; // e.g., "Album_123.*"
-
-                // 2. Search the Cachepath directory for any file matching the pattern
-                // The search option ensures it returns only files, not directories.
-                // The search option TopDirectoryOnly means it only looks in the Cachepath folder itself.
-                string[] files = Directory.GetFiles(
-                    Cachepath, 
-                    searchPattern, 
-                    SearchOption.TopDirectoryOnly
-                );
-
-                // 3. Check the results
-                if (files.Length > 0)
+                try
                 {
-                    // The file is found! Return the full path of the first match (e.g., "C:\cache\Album_123.jpg")
-                    return files[0];
+                    string baseFileName = type.ToString() + "_" + itemId;
+                    string searchPattern = baseFileName + ".*"; // e.g., "Album_123.*"
+
+                    string[] files = Directory.GetFiles(
+                        Cachepath,
+                        searchPattern,
+                        SearchOption.TopDirectoryOnly
+                    );
+
+                    if (files.Length > 0)
+                    {
+                        return files[0];
+                    }
                 }
-                else
+                catch (Exception ioException) when (ioException is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
                 {
-                    // The file is not found. Return null to indicate it needs to be downloaded.
-                    return null;
+                    Console.Error.WriteLine($"Failed to read cache directory '{Cachepath}': {ioException}");
                 }
+
+                return null;
             }
         }
     }

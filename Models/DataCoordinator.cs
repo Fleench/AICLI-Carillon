@@ -72,10 +72,13 @@ namespace Spotify_Playlist_Manager.Models
         {
             ArgumentNullException.ThrowIfNull(playlist);
             EnsureValidId(playlist.Id, nameof(playlist.Id));
-            if (string.IsNullOrEmpty(playlist.ImageURL))
+            string? playlistImagePath = CacheWorker.GetImagePath(CacheWorker.ImageType.Playlist, playlist.Id);
+            if (string.IsNullOrWhiteSpace(playlistImagePath) && !string.IsNullOrWhiteSpace(playlist.ImageURL))
             {
-                await CacheWorker.DownloadImageAsync(playlist.ImageURL,CacheWorker.ImageType.Album, playlist.Id);
+                playlistImagePath = await CacheWorker.DownloadImageAsync(playlist.ImageURL, CacheWorker.ImageType.Playlist, playlist.Id);
             }
+
+            playlist.ImagePath = playlistImagePath ?? string.Empty;
             await DatabaseWorker.SetPlaylist(playlist);
         }
 
@@ -95,10 +98,13 @@ namespace Spotify_Playlist_Manager.Models
         {
             ArgumentNullException.ThrowIfNull(album);
             EnsureValidId(album.Id, nameof(album.Id));
-            if (string.IsNullOrEmpty(album.ImageURL))
+            string? albumImagePath = CacheWorker.GetImagePath(CacheWorker.ImageType.Album, album.Id);
+            if (string.IsNullOrWhiteSpace(albumImagePath) && !string.IsNullOrWhiteSpace(album.ImageURL))
             {
-                await CacheWorker.DownloadImageAsync(album.ImageURL,CacheWorker.ImageType.Album, album.Id);
+                albumImagePath = await CacheWorker.DownloadImageAsync(album.ImageURL, CacheWorker.ImageType.Album, album.Id);
             }
+
+            album.ImagePath = albumImagePath ?? string.Empty;
             await DatabaseWorker.SetAlbum(album);
         }
 
@@ -139,10 +145,13 @@ namespace Spotify_Playlist_Manager.Models
         {
             ArgumentNullException.ThrowIfNull(artist);
             EnsureValidId(artist.Id, nameof(artist.Id));
-            if (string.IsNullOrEmpty(artist.ImageURL))
+            string? artistImagePath = CacheWorker.GetImagePath(CacheWorker.ImageType.Artist, artist.Id);
+            if (string.IsNullOrWhiteSpace(artistImagePath) && !string.IsNullOrWhiteSpace(artist.ImageURL))
             {
-                await CacheWorker.DownloadImageAsync(artist.ImageURL,CacheWorker.ImageType.Album, artist.Id);
+                artistImagePath = await CacheWorker.DownloadImageAsync(artist.ImageURL, CacheWorker.ImageType.Artist, artist.Id);
             }
+
+            artist.ImagePath = artistImagePath ?? string.Empty;
             await DatabaseWorker.SetArtist(artist);
         }
 
@@ -601,6 +610,7 @@ namespace Spotify_Playlist_Manager.Models
 
                         album.Name = updatedAlbum.Name;
                         album.ImageURL = updatedAlbum.ImageURL;
+                        album.ImagePath = updatedAlbum.ImagePath;
                         album.ArtistIDs = updatedAlbum.ArtistIDs;
                     }
 
@@ -631,13 +641,20 @@ namespace Spotify_Playlist_Manager.Models
             {
                 if (artist.MissingInfo() && artistDetails.TryGetValue(artist.Id, out var data))
                 {
-                    await SetArtistAsync(new Variables.Artist()
+                    var updatedArtist = new Variables.Artist()
                     {
                         Id = data.Id ?? artist.Id,
                         Genres = data.Genres ?? string.Empty,
                         Name = data.Name ?? string.Empty,
                         ImageURL = data.ImageUrl ?? string.Empty
-                    });
+                    };
+
+                    await SetArtistAsync(updatedArtist);
+
+                    artist.Name = updatedArtist.Name;
+                    artist.ImageURL = updatedArtist.ImageURL;
+                    artist.ImagePath = updatedArtist.ImagePath;
+                    artist.Genres = updatedArtist.Genres;
                 }
             }
 

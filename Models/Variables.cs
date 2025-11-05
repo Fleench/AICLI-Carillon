@@ -45,6 +45,7 @@ namespace Spotify_Playlist_Manager.Models
         {
             public string Name;
             public string ImageURL;
+            public string ImagePath = string.Empty;
             public string Id;
             public string Description;
             public string SnapshotID;
@@ -71,6 +72,7 @@ namespace Spotify_Playlist_Manager.Models
         {
             public string Name;
             public string ImageURL;
+            public string ImagePath = string.Empty;
             public string Id;
             public string ArtistIDs;
             public string TrackIDs;
@@ -154,6 +156,7 @@ namespace Spotify_Playlist_Manager.Models
         {
             public string Name;
             public string ImageURL;
+            public string ImagePath = string.Empty;
             public string Id;
             public string Genres;
 

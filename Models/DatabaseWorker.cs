@@ -37,6 +37,7 @@ namespace Spotify_Playlist_Manager.Models
                                       Id TEXT PRIMARY KEY,               -- Spotify playlist ID
                                       Name TEXT,
                                       ImageURL TEXT,
+                                      ImagePath TEXT,
                                       Description TEXT,
                                       SnapshotID TEXT,
                                       TrackIDs TEXT                      -- 'id1;;id2;;id3'
@@ -47,6 +48,7 @@ namespace Spotify_Playlist_Manager.Models
                                       Id TEXT PRIMARY KEY,               -- Spotify album ID
                                       Name TEXT,
                                       ImageURL TEXT,
+                                      ImagePath TEXT,
                                       ArtistIDs TEXT                     -- 'id1;;id2;;id3'
                                   );
 
@@ -69,6 +71,7 @@ namespace Spotify_Playlist_Manager.Models
                                       Id TEXT PRIMARY KEY,               -- Spotify artist ID
                                       Name TEXT,
                                       ImageURL TEXT,
+                                      ImagePath TEXT,
                                       Genres TEXT                        -- fixed typo: "Generes" → "Genres"
                                   );
 
@@ -81,6 +84,10 @@ namespace Spotify_Playlist_Manager.Models
 
 
             cmd.ExecuteNonQuery();
+
+            EnsureColumnExists(conn, "Playlists", "ImagePath");
+            EnsureColumnExists(conn, "Albums", "ImagePath");
+            EnsureColumnExists(conn, "Artists", "ImagePath");
         }
 
 
@@ -141,12 +148,13 @@ namespace Spotify_Playlist_Manager.Models
                 await conn.OpenAsync();
 
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT OR REPLACE INTO Playlists (Id, Name, ImageURL, Description, SnapshotID, TrackIDs)
-                                VALUES ($id, $name, $imageUrl, $description, $snapshotId, $trackIds);";
+                cmd.CommandText = @"INSERT OR REPLACE INTO Playlists (Id, Name, ImageURL, ImagePath, Description, SnapshotID, TrackIDs)
+                                VALUES ($id, $name, $imageUrl, $imagePath, $description, $snapshotId, $trackIds);";
 
                 cmd.Parameters.AddWithValue("$id", playlist.Id ?? string.Empty);
                 cmd.Parameters.AddWithValue("$name", playlist.Name ?? string.Empty);
                 cmd.Parameters.AddWithValue("$imageUrl", playlist.ImageURL ?? string.Empty);
+                cmd.Parameters.AddWithValue("$imagePath", playlist.ImagePath ?? string.Empty);
                 cmd.Parameters.AddWithValue("$description", playlist.Description ?? string.Empty);
                 cmd.Parameters.AddWithValue("$snapshotId", playlist.SnapshotID ?? string.Empty);
                 cmd.Parameters.AddWithValue("$trackIds", playlist.TrackIDs ?? string.Empty);
@@ -165,7 +173,7 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Name, ImageURL, Description, SnapshotID, TrackIDs FROM Playlists WHERE Id = $id LIMIT 1;";
+            cmd.CommandText = "SELECT Id, Name, ImageURL, ImagePath, Description, SnapshotID, TrackIDs FROM Playlists WHERE Id = $id LIMIT 1;";
             cmd.Parameters.AddWithValue("$id", id);
 
             using var reader = cmd.ExecuteReader();
@@ -177,6 +185,7 @@ namespace Spotify_Playlist_Manager.Models
                     Id = reader["Id"]?.ToString() ?? string.Empty,
                     Name = reader["Name"]?.ToString() ?? string.Empty,
                     ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
+                    ImagePath = reader["ImagePath"]?.ToString() ?? string.Empty,
                     Description = reader["Description"]?.ToString() ?? string.Empty,
                     SnapshotID = reader["SnapshotID"]?.ToString() ?? string.Empty,
                     TrackIDs = reader["TrackIDs"]?.ToString() ?? string.Empty
@@ -192,7 +201,7 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Name, ImageURL, Description, SnapshotID, TrackIDs FROM Playlists;";
+            cmd.CommandText = "SELECT Id, Name, ImageURL, ImagePath, Description, SnapshotID, TrackIDs FROM Playlists;";
 
             using var reader = cmd.ExecuteReader();
 
@@ -203,6 +212,7 @@ namespace Spotify_Playlist_Manager.Models
                     Id = reader["Id"]?.ToString() ?? string.Empty,
                     Name = reader["Name"]?.ToString() ?? string.Empty,
                     ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
+                    ImagePath = reader["ImagePath"]?.ToString() ?? string.Empty,
                     Description = reader["Description"]?.ToString() ?? string.Empty,
                     SnapshotID = reader["SnapshotID"]?.ToString() ?? string.Empty,
                     TrackIDs = reader["TrackIDs"]?.ToString() ?? string.Empty
@@ -219,12 +229,13 @@ namespace Spotify_Playlist_Manager.Models
                 await conn.OpenAsync();
 
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT OR REPLACE INTO Albums (Id, Name, ImageURL, ArtistIDs)
-                                VALUES ($id, $name, $imageUrl, $artistIds);";
+                cmd.CommandText = @"INSERT OR REPLACE INTO Albums (Id, Name, ImageURL, ImagePath, ArtistIDs)
+                                VALUES ($id, $name, $imageUrl, $imagePath, $artistIds);";
 
                 cmd.Parameters.AddWithValue("$id", album.Id ?? string.Empty);
                 cmd.Parameters.AddWithValue("$name", album.Name ?? string.Empty);
                 cmd.Parameters.AddWithValue("$imageUrl", album.ImageURL ?? string.Empty);
+                cmd.Parameters.AddWithValue("$imagePath", album.ImagePath ?? string.Empty);
                 cmd.Parameters.AddWithValue("$artistIds", album.ArtistIDs ?? string.Empty);
 
                 await cmd.ExecuteNonQueryAsync();
@@ -241,7 +252,7 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Name, ImageURL, ArtistIDs FROM Albums WHERE Id = $id LIMIT 1;";
+            cmd.CommandText = "SELECT Id, Name, ImageURL, ImagePath, ArtistIDs FROM Albums WHERE Id = $id LIMIT 1;";
             cmd.Parameters.AddWithValue("$id", id);
 
             using var reader = cmd.ExecuteReader();
@@ -255,6 +266,7 @@ namespace Spotify_Playlist_Manager.Models
                     Id = albumId,
                     Name = reader["Name"]?.ToString() ?? string.Empty,
                     ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
+                    ImagePath = reader["ImagePath"]?.ToString() ?? string.Empty,
                     ArtistIDs = reader["ArtistIDs"]?.ToString() ?? string.Empty,
                     TrackIDs = GetAlbumTrackIds(conn, albumId)
                 };
@@ -269,7 +281,7 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Name, ImageURL, ArtistIDs FROM Albums;";
+            cmd.CommandText = "SELECT Id, Name, ImageURL, ImagePath, ArtistIDs FROM Albums;";
 
             using var reader = cmd.ExecuteReader();
 
@@ -281,6 +293,7 @@ namespace Spotify_Playlist_Manager.Models
                     Id = albumId,
                     Name = reader["Name"]?.ToString() ?? string.Empty,
                     ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
+                    ImagePath = reader["ImagePath"]?.ToString() ?? string.Empty,
                     ArtistIDs = reader["ArtistIDs"]?.ToString() ?? string.Empty,
                     TrackIDs = GetAlbumTrackIds(conn, albumId)
                 };
@@ -416,12 +429,13 @@ namespace Spotify_Playlist_Manager.Models
                 await conn.OpenAsync();
 
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT OR REPLACE INTO Artists (Id, Name, ImageURL, Genres)
-                                VALUES ($id, $name, $imageUrl, $genres);";
+                cmd.CommandText = @"INSERT OR REPLACE INTO Artists (Id, Name, ImageURL, ImagePath, Genres)
+                                VALUES ($id, $name, $imageUrl, $imagePath, $genres);";
 
                 cmd.Parameters.AddWithValue("$id", artist.Id ?? string.Empty);
                 cmd.Parameters.AddWithValue("$name", artist.Name ?? string.Empty);
                 cmd.Parameters.AddWithValue("$imageUrl", artist.ImageURL ?? string.Empty);
+                cmd.Parameters.AddWithValue("$imagePath", artist.ImagePath ?? string.Empty);
                 cmd.Parameters.AddWithValue("$genres", artist.Genres ?? string.Empty);
 
                 await cmd.ExecuteNonQueryAsync();
@@ -438,7 +452,7 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Name, ImageURL, Genres FROM Artists WHERE Id = $id LIMIT 1;";
+            cmd.CommandText = "SELECT Id, Name, ImageURL, ImagePath, Genres FROM Artists WHERE Id = $id LIMIT 1;";
             cmd.Parameters.AddWithValue("$id", id);
 
             using var reader = cmd.ExecuteReader();
@@ -450,6 +464,7 @@ namespace Spotify_Playlist_Manager.Models
                     Id = reader["Id"]?.ToString() ?? string.Empty,
                     Name = reader["Name"]?.ToString() ?? string.Empty,
                     ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
+                    ImagePath = reader["ImagePath"]?.ToString() ?? string.Empty,
                     Genres = reader["Genres"]?.ToString() ?? string.Empty
                 };
             }
@@ -463,7 +478,7 @@ namespace Spotify_Playlist_Manager.Models
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT Id, Name, ImageURL, Genres FROM Artists;";
+            cmd.CommandText = "SELECT Id, Name, ImageURL, ImagePath, Genres FROM Artists;";
 
             using var reader = cmd.ExecuteReader();
 
@@ -474,8 +489,35 @@ namespace Spotify_Playlist_Manager.Models
                     Id = reader["Id"]?.ToString() ?? string.Empty,
                     Name = reader["Name"]?.ToString() ?? string.Empty,
                     ImageURL = reader["ImageURL"]?.ToString() ?? string.Empty,
+                    ImagePath = reader["ImagePath"]?.ToString() ?? string.Empty,
                     Genres = reader["Genres"]?.ToString() ?? string.Empty
                 };
+            }
+        }
+
+        private static void EnsureColumnExists(SqliteConnection connection, string tableName, string columnName)
+        {
+            using var checkCmd = connection.CreateCommand();
+            checkCmd.CommandText = $"PRAGMA table_info({tableName});";
+
+            using var reader = checkCmd.ExecuteReader();
+            while (reader.Read())
+            {
+                if (string.Equals(reader["name"]?.ToString(), columnName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+            }
+
+            try
+            {
+                using var alterCmd = connection.CreateCommand();
+                alterCmd.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} TEXT;";
+                alterCmd.ExecuteNonQuery();
+            }
+            catch (SqliteException ex)
+            {
+                Console.Error.WriteLine($"Unable to add column '{columnName}' to '{tableName}': {ex}");
             }
         }
 
