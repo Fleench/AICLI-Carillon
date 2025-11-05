@@ -353,6 +353,75 @@ namespace Spotify_Playlist_Manager.Models
             return (playlist.Name, imageURL, playlist.Id, playlist.Description, playlist.SnapshotId, trackIDs);
         }
 
+        public static async Task<Dictionary<string, (string? name, string? imageURL, string? Id, string? Description, string? SnapshotID, string? TrackIDs)>> GetPlaylistDataBatchAsync(IEnumerable<string> playlistIds)
+        {
+            var results = new Dictionary<string, (string? name, string? imageURL, string? Id, string? Description, string? SnapshotID, string? TrackIDs)>();
+            var ids = NormalizeIds(playlistIds);
+
+            if (ids.Count == 0)
+            {
+                return results;
+            }
+
+            var spotify = await SpotifySession.Instance.GetClientAsync();
+
+            foreach (var batch in Chunk(ids, 50))
+            {
+                var tasks = batch.Select(async id =>
+                {
+                    try
+                    {
+                        return await spotify.Playlists.Get(id).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                }).ToArray();
+
+                var playlists = await Task.WhenAll(tasks).ConfigureAwait(false);
+
+                foreach (var playlist in playlists)
+                {
+                    if (playlist == null || string.IsNullOrEmpty(playlist.Id))
+                    {
+                        continue;
+                    }
+
+                    string imageURL = string.Empty;
+
+                    if (playlist.Images != null && playlist.Images.Count > 0)
+                    {
+                        imageURL = playlist.Images[0].Url;
+                    }
+
+                    string trackIds = string.Empty;
+
+                    if (playlist.Tracks?.Items != null)
+                    {
+                        foreach (var item in playlist.Tracks.Items)
+                        {
+                            if (item.Track is FullTrack track && !string.IsNullOrEmpty(track.Id))
+                            {
+                                trackIds += track.Id + ";;";
+                            }
+                        }
+                    }
+
+                    results[playlist.Id] = (
+                        playlist.Name,
+                        imageURL,
+                        playlist.Id,
+                        playlist.Description,
+                        playlist.SnapshotId,
+                        trackIds
+                    );
+                }
+            }
+
+            return results;
+        }
+
         /// <summary>
         /// Pulls full album metadata plus lists of track and artist IDs. The
         /// data is formatted exactly like the legacy worker so downstream
@@ -388,6 +457,74 @@ namespace Spotify_Playlist_Manager.Models
             return (album.Name, imageURL, album.Id, trackIDs, artistIDs);
         }
 
+        public static async Task<Dictionary<string, (string? name, string? imageURL, string? Id, string TrackIDs, string artistIDs)>> GetAlbumDataBatchAsync(IEnumerable<string> albumIds)
+        {
+            var results = new Dictionary<string, (string? name, string? imageURL, string? Id, string TrackIDs, string artistIDs)>();
+            var ids = NormalizeIds(albumIds);
+
+            if (ids.Count == 0)
+            {
+                return results;
+            }
+
+            var spotify = await SpotifySession.Instance.GetClientAsync();
+
+            foreach (var batch in Chunk(ids, 20))
+            {
+                AlbumsResponse response;
+
+                try
+                {
+                    response = await spotify.Albums.GetSeveral(new AlbumsRequest(batch)).ConfigureAwait(false);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (response?.Albums == null)
+                {
+                    continue;
+                }
+
+                foreach (var album in response.Albums)
+                {
+                    if (album == null || string.IsNullOrEmpty(album.Id))
+                    {
+                        continue;
+                    }
+
+                    string imageURL = album.Images?.FirstOrDefault()?.Url ?? string.Empty;
+                    string trackIds = string.Empty;
+
+                    if (album.Tracks?.Items != null)
+                    {
+                        foreach (var track in album.Tracks.Items)
+                        {
+                            if (!string.IsNullOrEmpty(track.Id))
+                            {
+                                trackIds += track.Id + ";;";
+                            }
+                        }
+                    }
+
+                    string artistIds = album.Artists != null && album.Artists.Any()
+                        ? string.Join(";;", album.Artists.Where(a => !string.IsNullOrEmpty(a.Id)).Select(a => a.Id))
+                        : string.Empty;
+
+                    results[album.Id] = (
+                        album.Name,
+                        imageURL,
+                        album.Id,
+                        trackIds,
+                        artistIds
+                    );
+                }
+            }
+
+            return results;
+        }
+
         /// <summary>
         /// Returns a tuple of the most important song metadata for a given
         /// track. Tuples keep the public signature identical to the v1 worker so
@@ -411,6 +548,64 @@ namespace Spotify_Playlist_Manager.Models
             );
         }
 
+        public static async Task<Dictionary<string, (string name, string id, string albumID, string artistIDs, int discnumber, int durrationms, bool Explicit, string previewURL, int tracknumber)>> GetSongDataBatchAsync(IEnumerable<string> trackIds)
+        {
+            var results = new Dictionary<string, (string name, string id, string albumID, string artistIDs, int discnumber, int durrationms, bool Explicit, string previewURL, int tracknumber)>();
+            var ids = NormalizeIds(trackIds);
+
+            if (ids.Count == 0)
+            {
+                return results;
+            }
+
+            var spotify = await SpotifySession.Instance.GetClientAsync();
+
+            foreach (var batch in Chunk(ids, 50))
+            {
+                TracksResponse response;
+
+                try
+                {
+                    response = await spotify.Tracks.GetSeveral(new TracksRequest(batch)).ConfigureAwait(false);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (response?.Tracks == null)
+                {
+                    continue;
+                }
+
+                foreach (var track in response.Tracks)
+                {
+                    if (track == null || string.IsNullOrEmpty(track.Id))
+                    {
+                        continue;
+                    }
+
+                    string artistIDs = track.Artists != null && track.Artists.Any()
+                        ? string.Join("::", track.Artists.Where(a => !string.IsNullOrEmpty(a.Id)).Select(a => a.Id))
+                        : string.Empty;
+
+                    results[track.Id] = (
+                        track.Name,
+                        track.Id,
+                        track.Album?.Id ?? string.Empty,
+                        artistIDs,
+                        track.DiscNumber,
+                        track.DurationMs,
+                        track.Explicit,
+                        track.PreviewUrl,
+                        track.TrackNumber
+                    );
+                }
+            }
+
+            return results;
+        }
+
         /// <summary>
         /// Collects the basic artist info used throughout the UI. The method
         /// includes a defensive check for missing artwork because many artists
@@ -428,6 +623,60 @@ namespace Spotify_Playlist_Manager.Models
             return (artist.Id, artist.Name, imageUrl, genres);
         }
 
+        public static async Task<Dictionary<string, (string Id, string Name, string? ImageUrl, string Genres)>> GetArtistDataBatchAsync(IEnumerable<string> artistIds)
+        {
+            var results = new Dictionary<string, (string Id, string Name, string? ImageUrl, string Genres)>();
+            var ids = NormalizeIds(artistIds);
+
+            if (ids.Count == 0)
+            {
+                return results;
+            }
+
+            var spotify = await SpotifySession.Instance.GetClientAsync();
+
+            foreach (var batch in Chunk(ids, 50))
+            {
+                ArtistsResponse response;
+
+                try
+                {
+                    response = await spotify.Artists.GetSeveral(new ArtistsRequest(batch)).ConfigureAwait(false);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (response?.Artists == null)
+                {
+                    continue;
+                }
+
+                foreach (var artist in response.Artists)
+                {
+                    if (artist == null || string.IsNullOrEmpty(artist.Id))
+                    {
+                        continue;
+                    }
+
+                    string? imageUrl = artist.Images?.FirstOrDefault()?.Url;
+                    string genres = artist.Genres != null && artist.Genres.Any()
+                        ? string.Join(";;", artist.Genres)
+                        : string.Empty;
+
+                    results[artist.Id] = (
+                        artist.Id,
+                        artist.Name,
+                        imageUrl,
+                        genres
+                    );
+                }
+            }
+
+            return results;
+        }
+
         /// <summary>
         /// Adds the provided track IDs to a playlist. The worker handles the
         /// conversion from raw Spotify IDs to Spotify URIs so callers can remain
@@ -439,6 +688,56 @@ namespace Spotify_Playlist_Manager.Models
             var uris = trackIds.ConvertAll(id => $"spotify:track:{id}");
             var request = new PlaylistAddItemsRequest(uris);
             await spotify.Playlists.AddItems(playlistId, request);
+        }
+
+        private static List<string> NormalizeIds(IEnumerable<string> ids)
+        {
+            var results = new List<string>();
+
+            if (ids == null)
+            {
+                return results;
+            }
+
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var id in ids)
+            {
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    continue;
+                }
+
+                var normalized = id.Trim();
+
+                if (seen.Add(normalized))
+                {
+                    results.Add(normalized);
+                }
+            }
+
+            return results;
+        }
+
+        private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> source, int size)
+        {
+            if (source.Count == 0 || size <= 0)
+            {
+                yield break;
+            }
+
+            for (int i = 0; i < source.Count; i += size)
+            {
+                int count = Math.Min(size, source.Count - i);
+                var chunk = new List<T>(count);
+
+                for (int j = 0; j < count; j++)
+                {
+                    chunk.Add(source[i + j]);
+                }
+
+                yield return chunk;
+            }
         }
     }
 

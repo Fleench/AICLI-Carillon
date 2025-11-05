@@ -6,13 +6,14 @@
 using SQLitePCL;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Spotify_Playlist_Manager.Models;
 namespace Spotify_Playlist_Manager.Models
 {
     static class DataCoordinator
     {
-        public static async Task Sync()
+        public static async Task SlowSync()
         {
             /* Playlists → Playlist Tracks
 
@@ -168,6 +169,202 @@ namespace Spotify_Playlist_Manager.Models
                     });
                 }
             }
+            Console.WriteLine("Got Artist Data");
+        }
+
+        public static async Task Sync()
+        {
+            var playlistSummaries = new List<(string Id, string Name, int TrackCount)>();
+            await foreach (var playlist in SpotifyWorker.GetUserPlaylistsAsync())
+            {
+                playlistSummaries.Add(playlist);
+            }
+
+            var playlistDetails = await SpotifyWorker.GetPlaylistDataBatchAsync(playlistSummaries.Select(p => p.Id));
+
+            foreach (var summary in playlistSummaries)
+            {
+                if (!playlistDetails.TryGetValue(summary.Id, out var data))
+                {
+                    continue;
+                }
+
+                Variables.PlayList playlist = new()
+                {
+                    Id = data.Id ?? summary.Id,
+                    Name = data.name ?? string.Empty,
+                    ImageURL = data.imageURL ?? string.Empty,
+                    Description = data.Description ?? string.Empty,
+                    SnapshotID = data.SnapshotID ?? string.Empty,
+                    TrackIDs = data.TrackIDs ?? string.Empty
+                };
+
+                Variables.PlayList? existing = DatabaseWorker.GetPlaylist(playlist.Id);
+
+                if (existing == null || existing.SnapshotID != playlist.SnapshotID)
+                {
+                    await DatabaseWorker.SetPlaylist(playlist);
+
+                    foreach (string id in SplitIds(playlist.TrackIDs, Variables.Seperator))
+                    {
+                        await DatabaseWorker.SetTrack(new Variables.Track() { Id = id });
+                    }
+                }
+            }
+
+            Console.WriteLine("Got Playlists");
+
+            var albumSummaries = new List<(string Id, string Name, int TrackCount, string Artists)>();
+            await foreach (var album in SpotifyWorker.GetUserAlbumsAsync())
+            {
+                albumSummaries.Add(album);
+            }
+
+            var newAlbumIds = albumSummaries
+                .Where(summary => DatabaseWorker.GetAlbum(summary.Id) is null)
+                .Select(summary => summary.Id)
+                .ToList();
+
+            var newAlbumDetails = await SpotifyWorker.GetAlbumDataBatchAsync(newAlbumIds);
+
+            foreach (var albumId in newAlbumIds)
+            {
+                if (!newAlbumDetails.TryGetValue(albumId, out var data))
+                {
+                    continue;
+                }
+
+                Variables.Album album = new()
+                {
+                    Id = data.Id ?? albumId,
+                    Name = data.name ?? string.Empty,
+                    ImageURL = data.imageURL ?? string.Empty,
+                    ArtistIDs = data.artistIDs ?? string.Empty
+                };
+
+                foreach (var trackId in SplitIds(data.TrackIDs, Variables.Seperator))
+                {
+                    await DatabaseWorker.SetTrack(new Variables.Track() { Id = trackId });
+                }
+
+                await DatabaseWorker.SetAlbum(album);
+            }
+
+            Console.WriteLine("Got Albums");
+
+            await foreach (var liked in SpotifyWorker.GetLikedSongsAsync())
+            {
+                await DatabaseWorker.SetTrack(new Variables.Track() { Id = liked.Id });
+            }
+
+            Console.WriteLine("Got Liked Songs");
+
+            var trackRecords = DatabaseWorker.GetAllTracks().ToList();
+            var missingTrackIds = trackRecords.Where(t => t.MissingInfo()).Select(t => t.Id).ToList();
+            var missingTrackDetails = await SpotifyWorker.GetSongDataBatchAsync(missingTrackIds);
+
+            var hydratedTracks = new List<Variables.Track>(trackRecords.Count);
+
+            foreach (var track in trackRecords)
+            {
+                var current = track;
+
+                if (track.MissingInfo() && missingTrackDetails.TryGetValue(track.Id, out var data))
+                {
+                    current = new Variables.Track()
+                    {
+                        Id = track.Id,
+                        Name = data.name ?? string.Empty,
+                        AlbumId = data.albumID ?? string.Empty,
+                        ArtistIds = data.artistIDs ?? string.Empty,
+                        DiscNumber = data.discnumber,
+                        TrackNumber = data.tracknumber,
+                        Explicit = data.Explicit,
+                        DurationMs = data.durrationms,
+                        PreviewUrl = data.previewURL ?? string.Empty,
+                        SongID = string.IsNullOrEmpty(track.SongID) ? Variables.MakeId() : track.SongID
+                    };
+
+                    await DatabaseWorker.SetTrack(current);
+                }
+
+                hydratedTracks.Add(current);
+            }
+
+            foreach (var track in hydratedTracks)
+            {
+                if (!string.IsNullOrEmpty(track.AlbumId))
+                {
+                    await DatabaseWorker.SetAlbum(new Variables.Album() { Id = track.AlbumId });
+                }
+
+                foreach (var artistId in SplitArtistIds(track.ArtistIds))
+                {
+                    await DatabaseWorker.SetArtist(new Variables.Artist() { Id = artistId });
+                }
+            }
+
+            Console.WriteLine("Got Track Data");
+
+            var albumRecords = DatabaseWorker.GetAllAlbums().ToList();
+            var albumsNeedingDetails = albumRecords.Where(a => a.MissingInfo()).Select(a => a.Id).ToList();
+            var albumDetails = await SpotifyWorker.GetAlbumDataBatchAsync(albumsNeedingDetails);
+
+            foreach (var album in albumRecords)
+            {
+                if (albumDetails.TryGetValue(album.Id, out var data))
+                {
+                    if (album.MissingInfo())
+                    {
+                        var updatedAlbum = new Variables.Album()
+                        {
+                            Id = album.Id,
+                            Name = data.name ?? string.Empty,
+                            ImageURL = data.imageURL ?? string.Empty,
+                            ArtistIDs = data.artistIDs ?? string.Empty
+                        };
+
+                        await DatabaseWorker.SetAlbum(updatedAlbum);
+
+                        album.Name = updatedAlbum.Name;
+                        album.ImageURL = updatedAlbum.ImageURL;
+                        album.ArtistIDs = updatedAlbum.ArtistIDs;
+                    }
+
+                    foreach (var artistId in SplitIds(data.artistIDs, Variables.Seperator))
+                    {
+                        await DatabaseWorker.SetArtist(new Variables.Artist() { Id = artistId });
+                    }
+                }
+                else
+                {
+                    foreach (var artistId in SplitIds(album.ArtistIDs, Variables.Seperator))
+                    {
+                        await DatabaseWorker.SetArtist(new Variables.Artist() { Id = artistId });
+                    }
+                }
+            }
+
+            Console.WriteLine("Got Album Data");
+
+            var artistRecords = DatabaseWorker.GetAllArtists().ToList();
+            var artistsNeedingDetails = artistRecords.Where(a => a.MissingInfo()).Select(a => a.Id).ToList();
+            var artistDetails = await SpotifyWorker.GetArtistDataBatchAsync(artistsNeedingDetails);
+
+            foreach (var artist in artistRecords)
+            {
+                if (artist.MissingInfo() && artistDetails.TryGetValue(artist.Id, out var data))
+                {
+                    await DatabaseWorker.SetArtist(new Variables.Artist()
+                    {
+                        Id = data.Id ?? artist.Id,
+                        Genres = data.Genres ?? string.Empty,
+                        Name = data.Name ?? string.Empty,
+                        ImageURL = data.ImageUrl ?? string.Empty
+                    });
+                }
+            }
+
             Console.WriteLine("Got Artist Data");
         }
 
