@@ -503,13 +503,13 @@ namespace Spotify_Playlist_Manager.Models
                         {
                             if (!string.IsNullOrEmpty(track.Id))
                             {
-                                trackIds += track.Id + ";;";
+                                trackIds += track.Id + Variables.Seperator;
                             }
                         }
                     }
 
                     string artistIds = album.Artists != null && album.Artists.Any()
-                        ? string.Join(";;", album.Artists.Where(a => !string.IsNullOrEmpty(a.Id)).Select(a => a.Id))
+                        ? string.Join(Variables.Seperator, album.Artists.Where(a => !string.IsNullOrEmpty(a.Id)).Select(a => a.Id))
                         : string.Empty;
 
                     results[album.Id] = (
@@ -534,7 +534,7 @@ namespace Spotify_Playlist_Manager.Models
         {
             var spotify = await SpotifySession.Instance.GetClientAsync();
             FullTrack track = await spotify.Tracks.Get(id);
-            string artistIDs = string.Join("::", track.Artists.Select(a => a.Id));
+            string artistIDs = string.Join(Variables.Seperator, track.Artists.Select(a => a.Id));
             return (
                 track.Name,
                 track.Id,
@@ -586,7 +586,7 @@ namespace Spotify_Playlist_Manager.Models
                     }
 
                     string artistIDs = track.Artists != null && track.Artists.Any()
-                        ? string.Join("::", track.Artists.Where(a => !string.IsNullOrEmpty(a.Id)).Select(a => a.Id))
+                        ? string.Join(Variables.Seperator, track.Artists.Where(a => !string.IsNullOrEmpty(a.Id)).Select(a => a.Id))
                         : string.Empty;
 
                     results[track.Id] = (

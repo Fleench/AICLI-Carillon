@@ -26,6 +26,8 @@ namespace Spotify_Playlist_Manager.Models
     {
         private static readonly TimeSpan RateLimitRetryThreshold = TimeSpan.FromMinutes(2);
         private static readonly TimeSpan MinimumRetryDelay = TimeSpan.FromSeconds(1);
+        private const string LegacyArtistSeparator = "::";
+        private static readonly string[] ArtistIdSeparators = new[] { Variables.Seperator, LegacyArtistSeparator };
 
         private static void EnsureValidId(string? id, string paramName)
         {
@@ -105,6 +107,7 @@ namespace Spotify_Playlist_Manager.Models
             }
 
             album.ImagePath = albumImagePath ?? string.Empty;
+            album.ArtistIDs = NormalizeArtistIdString(album.ArtistIDs);
             await DatabaseWorker.SetAlbum(album);
         }
 
@@ -125,6 +128,8 @@ namespace Spotify_Playlist_Manager.Models
             ArgumentNullException.ThrowIfNull(track);
             EnsureValidId(track.Id, nameof(track.Id));
             EnsureValidSongId(track);
+
+            track.ArtistIds = NormalizeArtistIdString(track.ArtistIds);
 
             await DatabaseWorker.SetTrack(track);
         }
@@ -403,7 +408,57 @@ namespace Spotify_Playlist_Manager.Models
 
         private static List<string> SplitArtistIds(string? ids)
         {
-            return SplitIds(ids, "::", Variables.Seperator);
+            return SplitIds(ids, ArtistIdSeparators);
+        }
+
+        private static string NormalizeArtistIdString(string? ids)
+        {
+            var normalizedIds = SplitIds(ids, ArtistIdSeparators);
+
+            if (normalizedIds.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            return string.Join(Variables.Seperator, normalizedIds);
+        }
+
+        /// <summary>
+        /// Normalizes legacy artist identifier separators stored in the database
+        /// so that all persisted values use <see cref="Variables.Seperator"/>.
+        /// </summary>
+        /// <returns>The number of rows updated across tracks and albums.</returns>
+        public static async Task<int> UpdateArtistIdSeparatorsAsync()
+        {
+            int updates = 0;
+
+            foreach (var track in GetAllTracks())
+            {
+                string current = track.ArtistIds ?? string.Empty;
+                string normalized = NormalizeArtistIdString(current);
+
+                if (!string.Equals(current, normalized, StringComparison.Ordinal))
+                {
+                    track.ArtistIds = normalized;
+                    await DatabaseWorker.SetTrack(track);
+                    updates++;
+                }
+            }
+
+            foreach (var album in GetAllAlbums())
+            {
+                string current = album.ArtistIDs ?? string.Empty;
+                string normalized = NormalizeArtistIdString(current);
+
+                if (!string.Equals(current, normalized, StringComparison.Ordinal))
+                {
+                    album.ArtistIDs = normalized;
+                    await DatabaseWorker.SetAlbum(album);
+                    updates++;
+                }
+            }
+
+            return updates;
         }
 
         private static async Task ExecuteWithRetryAsync(Func<Task> operation, string operationName)
