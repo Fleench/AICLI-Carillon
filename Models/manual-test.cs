@@ -113,6 +113,18 @@ public class TempProgram
                 //Console.WriteLine("IDK");
         }
         Console.WriteLine($"You have {tracks.Count} items");
+        Theme theme = new();
+        Console.WriteLine(theme);
+        /*Console.Read();
+        theme.Swap();
+        Console.WriteLine(theme);
+        Console.Read();
+        theme.Generate("#bcd8c1");
+        Console.WriteLine(theme);
+        Console.Read();
+        theme.Swap();
+        Console.WriteLine(theme);*/
+        
     }
 
     public static async Task<(string playlistID, string trackID, string albumID, string artistID)> Getabitofdata()
