@@ -33,7 +33,11 @@ namespace Spotify_Playlist_Manager.Models
         {
             Directory.CreateDirectory(AppDataPath);
             Directory.CreateDirectory(CachePath);
-            File.Create(DatabasePath).Close();
+
+            if (!File.Exists(DatabasePath))
+            {
+                File.Create(DatabasePath).Close();
+            }
             Console.WriteLine(DatabasePath);
         }
 
