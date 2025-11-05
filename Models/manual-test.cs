@@ -69,6 +69,11 @@ public class TempProgram
         FileHelper.ModifySpecificLine(myFile, 1, clientSecret);
         FileHelper.ModifySpecificLine(myFile, 2, at);
         FileHelper.ModifySpecificLine(myFile, 3, rt);
+        await DataCoordinator.SetSettingAsync(Variables.Settings.SW_ClientToken,clientID);
+        await DataCoordinator.SetSettingAsync(Variables.Settings.SW_RefreshToken,refreshToken);
+        await DataCoordinator.SetSettingAsync(Variables.Settings.SW_AccessToken, at);
+        await DataCoordinator.SetSettingAsync(Variables.Settings.SW_ClientSecret, clientSecret);
+        
         Console.WriteLine("YO WE DONE with AUTHENTICATED!");
         string data = "data.txt";
         //Get the first playlist, its first song, that songs album and artist, and save the IDs.
@@ -94,7 +99,44 @@ public class TempProgram
                 await Task.Delay(1000);
             }
         });
-        await DataCoordinator.Sync();
+        //await DataCoordinator.Sync();
+        // 1. Get the initial list of all tracks.
+        var allTracks = DataCoordinator.GetAllTracks();
+
+        // 2. Process the tracks using LINQ
+        var tracksWithDuplicateSongIds = allTracks
+            // Group the items based on the non-unique identifier: SongId
+            .GroupBy(item => item.SongID)
+        
+            // Filter the groups: keep only the ones that have 2 or more tracks associated with that SongId
+            .Where(group => group.Count() >= 2)
+        
+            // <--- THIS IS THE LINE YOU CHANGE --->
+            // Use SelectMany to flatten the remaining groups back into a single list of tracks.
+            // It takes all the individual Track items within the qualifying groups.
+            .SelectMany(group => group)
+        
+            // Convert the final result back to a List<Variables.Track>
+            .ToList();
+        foreach (var track in tracksWithDuplicateSongIds)
+        {
+            var artists = track.ArtistIds.Split(Variables.Seperator);
+            string artist_string = "";
+            foreach (var artist in artists)
+            {
+                var artist_item = DataCoordinator.GetArtist(artist);
+                if (artist_item != null)
+                {
+                    artist_string += artist_item.Name + ",";
+                }
+            }
+            Console.WriteLine($"{track.Name} - {artist_string}");
+            if (track.Name.StartsWith("Deep Cries Out")) ;
+            {
+                Console.WriteLine(track.ArtistIds);
+                
+            }
+        }
         
     }
 
