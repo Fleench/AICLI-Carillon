@@ -94,14 +94,7 @@ public class TempProgram
                 await Task.Delay(1000);
             }
         });
-        //await DataCoordinator.Sync();
-        Variables.Album album = new();
-        foreach (var item in DataCoordinator.GetAllAlbums())
-        {
-            album = item;
-            break;
-        }
-        Console.WriteLine(album.ImageURL);
+        await DataCoordinator.Sync();
         
     }
 
