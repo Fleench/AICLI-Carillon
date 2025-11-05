@@ -1,5 +1,5 @@
 /* File: SpotifyWorker_Old.cs
- * Author: Glenn Sutherland
+ * Author: Glenn Sutherland, ChatGPT Codex
  * Description: A wrapper for the SpotifyAPI.Web module. This abstraction allows
  * this module to be used instead ensuring that if the API used by the module is
  * switched the programs using this module do not break.
@@ -400,7 +400,7 @@ namespace Spotify_Playlist_Manager.Models
         {
             await AuthenticateAsync();
             FullTrack track = await spotify.Tracks.Get(id);
-            string artistIDs = string.Join("::", track.Artists.Select(a => a.Id));; 
+            string artistIDs = string.Join(Variables.Seperator, track.Artists.Select(a => a.Id));;
             return (track.Name,track.Id,track.Album.Id,artistIDs,track.DiscNumber,track.DurationMs,track.Explicit,track.PreviewUrl,track.TrackNumber);
         }
         //artist data
