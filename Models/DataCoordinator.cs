@@ -8,11 +8,25 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SpotifyAPI.Web;
 using Spotify_Playlist_Manager.Models;
 namespace Spotify_Playlist_Manager.Models
 {
+    public enum SyncEntryPoint
+    {
+        Playlists = 0,
+        Albums = 1,
+        LikedSongs = 2,
+        TrackMetadata = 3,
+        AlbumMetadata = 4,
+        ArtistMetadata = 5
+    }
+
     static class DataCoordinator
     {
+        private static readonly TimeSpan RateLimitRetryThreshold = TimeSpan.FromMinutes(2);
+        private static readonly TimeSpan MinimumRetryDelay = TimeSpan.FromSeconds(1);
+
         public static async Task SlowSync()
         {
             /* Playlists → Playlist Tracks
@@ -172,7 +186,103 @@ namespace Spotify_Playlist_Manager.Models
             Console.WriteLine("Got Artist Data");
         }
 
-        public static async Task Sync()
+        public static async Task Sync(SyncEntryPoint startFrom = SyncEntryPoint.Playlists)
+        {
+            if (startFrom <= SyncEntryPoint.Playlists)
+            {
+                await ExecuteWithRetryAsync(SyncPlaylistsAsync, "playlist synchronization");
+            }
+
+            if (startFrom <= SyncEntryPoint.Albums)
+            {
+                await ExecuteWithRetryAsync(SyncAlbumsAsync, "album synchronization");
+            }
+
+            if (startFrom <= SyncEntryPoint.LikedSongs)
+            {
+                await ExecuteWithRetryAsync(SyncLikedSongsAsync, "liked songs synchronization");
+            }
+
+            if (startFrom <= SyncEntryPoint.TrackMetadata)
+            {
+                await ExecuteWithRetryAsync(SyncTrackMetadataAsync, "track metadata synchronization");
+            }
+
+            if (startFrom <= SyncEntryPoint.AlbumMetadata)
+            {
+                await ExecuteWithRetryAsync(SyncAlbumMetadataAsync, "album metadata synchronization");
+            }
+
+            if (startFrom <= SyncEntryPoint.ArtistMetadata)
+            {
+                await ExecuteWithRetryAsync(SyncArtistMetadataAsync, "artist metadata synchronization");
+            }
+        }
+
+        private static List<string> SplitIds(string? ids, params string[] separators)
+        {
+            if (string.IsNullOrWhiteSpace(ids))
+            {
+                return new List<string>();
+            }
+
+            var parts = ids.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+            List<string> results = new();
+
+            foreach (var part in parts)
+            {
+                var trimmed = part.Trim();
+                if (!string.IsNullOrEmpty(trimmed))
+                {
+                    results.Add(trimmed);
+                }
+            }
+
+            return results;
+        }
+
+        private static List<string> SplitArtistIds(string? ids)
+        {
+            return SplitIds(ids, "::", Variables.Seperator);
+        }
+
+        private static async Task ExecuteWithRetryAsync(Func<Task> operation, string operationName)
+        {
+            while (true)
+            {
+                try
+                {
+                    await operation();
+                    return;
+                }
+                catch (APITooManyRequestsException ex) when (ShouldRetry(ex))
+                {
+                    var delay = ex.RetryAfter;
+
+                    if (delay <= TimeSpan.Zero)
+                    {
+                        delay = MinimumRetryDelay;
+                    }
+
+                    Console.WriteLine($"Rate limit encountered during {operationName}. Waiting {delay} before retrying.");
+                    await Task.Delay(delay);
+                }
+            }
+        }
+
+        private static bool ShouldRetry(APITooManyRequestsException ex)
+        {
+            var retryAfter = ex.RetryAfter;
+
+            if (retryAfter < TimeSpan.Zero)
+            {
+                return false;
+            }
+
+            return retryAfter < RateLimitRetryThreshold;
+        }
+
+        private static async Task SyncPlaylistsAsync()
         {
             var playlistSummaries = new List<(string Id, string Name, int TrackCount)>();
             await foreach (var playlist in SpotifyWorker.GetUserPlaylistsAsync())
@@ -213,7 +323,10 @@ namespace Spotify_Playlist_Manager.Models
             }
 
             Console.WriteLine("Got Playlists");
+        }
 
+        private static async Task SyncAlbumsAsync()
+        {
             var albumSummaries = new List<(string Id, string Name, int TrackCount, string Artists)>();
             await foreach (var album in SpotifyWorker.GetUserAlbumsAsync())
             {
@@ -251,14 +364,20 @@ namespace Spotify_Playlist_Manager.Models
             }
 
             Console.WriteLine("Got Albums");
+        }
 
+        private static async Task SyncLikedSongsAsync()
+        {
             await foreach (var liked in SpotifyWorker.GetLikedSongsAsync())
             {
                 await DatabaseWorker.SetTrack(new Variables.Track() { Id = liked.Id });
             }
 
             Console.WriteLine("Got Liked Songs");
+        }
 
+        private static async Task SyncTrackMetadataAsync()
+        {
             var trackRecords = DatabaseWorker.GetAllTracks().ToList();
             var missingTrackIds = trackRecords.Where(t => t.MissingInfo()).Select(t => t.Id).ToList();
             var missingTrackDetails = await SpotifyWorker.GetSongDataBatchAsync(missingTrackIds);
@@ -305,7 +424,10 @@ namespace Spotify_Playlist_Manager.Models
             }
 
             Console.WriteLine("Got Track Data");
+        }
 
+        private static async Task SyncAlbumMetadataAsync()
+        {
             var albumRecords = DatabaseWorker.GetAllAlbums().ToList();
             var albumsNeedingDetails = albumRecords.Where(a => a.MissingInfo()).Select(a => a.Id).ToList();
             var albumDetails = await SpotifyWorker.GetAlbumDataBatchAsync(albumsNeedingDetails);
@@ -346,7 +468,10 @@ namespace Spotify_Playlist_Manager.Models
             }
 
             Console.WriteLine("Got Album Data");
+        }
 
+        private static async Task SyncArtistMetadataAsync()
+        {
             var artistRecords = DatabaseWorker.GetAllArtists().ToList();
             var artistsNeedingDetails = artistRecords.Where(a => a.MissingInfo()).Select(a => a.Id).ToList();
             var artistDetails = await SpotifyWorker.GetArtistDataBatchAsync(artistsNeedingDetails);
@@ -366,33 +491,6 @@ namespace Spotify_Playlist_Manager.Models
             }
 
             Console.WriteLine("Got Artist Data");
-        }
-
-        private static List<string> SplitIds(string? ids, params string[] separators)
-        {
-            if (string.IsNullOrWhiteSpace(ids))
-            {
-                return new List<string>();
-            }
-
-            var parts = ids.Split(separators, StringSplitOptions.RemoveEmptyEntries);
-            List<string> results = new();
-
-            foreach (var part in parts)
-            {
-                var trimmed = part.Trim();
-                if (!string.IsNullOrEmpty(trimmed))
-                {
-                    results.Add(trimmed);
-                }
-            }
-
-            return results;
-        }
-
-        private static List<string> SplitArtistIds(string? ids)
-        {
-            return SplitIds(ids, "::", Variables.Seperator);
         }
     }
 }
