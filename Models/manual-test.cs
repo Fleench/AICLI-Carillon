@@ -95,22 +95,14 @@ public class TempProgram
             }
         });
         //await DataCoordinator.Sync();
-        HashSet<string> ids= new();
-        foreach (var track in DataCoordinator.GetAllTracks())
+        Variables.Album album = new();
+        foreach (var item in DataCoordinator.GetAllAlbums())
         {
-            ids.Add(track.SongID);
+            album = item;
+            break;
         }
-        Console.WriteLine($"There are {ids.Count} unique tracks before fuzzy matching");
-        Console.WriteLine("Starting Match");
-        FuzzyMatchLogic.BasicMatch();
-        ids.Clear();
-        foreach (var track in DataCoordinator.GetAllTracks())
-        {
-            ids.Add(track.SongID);
-        }
-        Console.WriteLine($"There are {ids.Count} unique tracks after fuzzy matching");
-       
-
+        Console.WriteLine(album.ImageURL);
+        
     }
 
     public static async Task<(string playlistID, string trackID, string albumID, string artistID)> Getabitofdata()

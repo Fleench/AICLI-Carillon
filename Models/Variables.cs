@@ -22,7 +22,7 @@ namespace Spotify_Playlist_Manager.Models
         public static readonly string ConfigPath = Path.Combine(AppDataPath, "config.json");
         public static readonly string DatabasePath = Path.Combine(AppDataPath, "data.db");
 
-        public static readonly string CachePath = Path.Combine(AppDataPath, "/cache");
+        public static readonly string CachePath = Path.Combine(AppDataPath, "cache");
 
         public static readonly string Seperator = ";;";
         public static readonly string Identifier = "CIID";

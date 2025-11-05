@@ -72,7 +72,10 @@ namespace Spotify_Playlist_Manager.Models
         {
             ArgumentNullException.ThrowIfNull(playlist);
             EnsureValidId(playlist.Id, nameof(playlist.Id));
-
+            if (string.IsNullOrEmpty(playlist.ImageURL))
+            {
+                await CacheWorker.DownloadImageAsync(playlist.ImageURL,CacheWorker.ImageType.Album, playlist.Id);
+            }
             await DatabaseWorker.SetPlaylist(playlist);
         }
 
@@ -92,7 +95,10 @@ namespace Spotify_Playlist_Manager.Models
         {
             ArgumentNullException.ThrowIfNull(album);
             EnsureValidId(album.Id, nameof(album.Id));
-
+            if (string.IsNullOrEmpty(album.ImageURL))
+            {
+                await CacheWorker.DownloadImageAsync(album.ImageURL,CacheWorker.ImageType.Album, album.Id);
+            }
             await DatabaseWorker.SetAlbum(album);
         }
 
@@ -133,7 +139,10 @@ namespace Spotify_Playlist_Manager.Models
         {
             ArgumentNullException.ThrowIfNull(artist);
             EnsureValidId(artist.Id, nameof(artist.Id));
-
+            if (string.IsNullOrEmpty(artist.ImageURL))
+            {
+                await CacheWorker.DownloadImageAsync(artist.ImageURL,CacheWorker.ImageType.Album, artist.Id);
+            }
             await DatabaseWorker.SetArtist(artist);
         }
 
@@ -153,7 +162,6 @@ namespace Spotify_Playlist_Manager.Models
         {
             EnsureValidId(songId, nameof(songId));
             EnsureValidId(songId2, nameof(songId2));
-
             await DatabaseWorker.SetSimilar(songId, songId2);
         }
 
