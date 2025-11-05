@@ -95,39 +95,21 @@ public class TempProgram
             }
         });
         //await DataCoordinator.Sync();
-        /*try
+        HashSet<string> ids= new();
+        foreach (var track in DataCoordinator.GetAllTracks())
         {
-            //await DataCoordinator.Sync();
-
+            ids.Add(track.SongID);
         }
-        catch (SpotifyAPI.Web.APITooManyRequestsException e)
+        Console.WriteLine($"There are {ids.Count} unique tracks before fuzzy matching");
+        Console.WriteLine("Starting Match");
+        FuzzyMatchLogic.BasicMatch();
+        ids.Clear();
+        foreach (var track in DataCoordinator.GetAllTracks())
         {
-            Console.WriteLine($"\nPlease wait for {e.RetryAfter} before fucking syncing again");
-            Console.WriteLine("Sync Completed");
-
+            ids.Add(track.SongID);
         }
-        */
-        List<object> tracks = new();
-        foreach (var item in DatabaseWorker.GetAllTracks())
-        {
-                tracks.Add(item);
-                //Console.WriteLine("IDK");
-        }
-        var total =  DatabaseWorker.GetAllTracks();
-        Console.WriteLine();
-        Console.WriteLine($"Total Tracks: {total.Count()}");
-        Console.WriteLine($"You have {tracks.Count} items");
-        /*Theme theme = new();
-        Console.WriteLine(theme);
-        /*Console.Read();
-        theme.Swap();
-        Console.WriteLine(theme);
-        Console.Read();
-        theme.Generate("#bcd8c1");
-        Console.WriteLine(theme);
-        Console.Read();
-        theme.Swap();
-        Console.WriteLine(theme);*/
+        Console.WriteLine($"There are {ids.Count} unique tracks after fuzzy matching");
+       
 
     }
 
