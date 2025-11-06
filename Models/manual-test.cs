@@ -101,6 +101,7 @@ public class TempProgram
         });
         //await DataCoordinator.Sync();
         // 1. Get the initial list of all tracks.
+        DataCoordinator.UpdateArtistIdSeparatorsAsync();
         var allTracks = DataCoordinator.GetAllTracks();
 
         // 2. Process the tracks using LINQ
@@ -131,11 +132,6 @@ public class TempProgram
                 }
             }
             Console.WriteLine($"{track.Name} - {artist_string}");
-            if (track.Name.StartsWith("Deep Cries Out")) ;
-            {
-                Console.WriteLine(track.ArtistIds);
-                
-            }
         }
         
     }
