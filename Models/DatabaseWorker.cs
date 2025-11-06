@@ -78,7 +78,14 @@ namespace Spotify_Playlist_Manager.Models
                                   -- Similar table
                                   CREATE TABLE IF NOT EXISTS Similar (
                                       SongID TEXT,                       -- Spotify similar ID
-                                      SongID2 TEXT                       -- removed trailing comma
+                                      SongID2 TEXT,                      -- Secondary similar ID
+                                      Type TEXT                          -- Similarity classification
+                                  );
+
+                                  -- MightBeSimilar table
+                                  CREATE TABLE IF NOT EXISTS MightBeSimilar (
+                                      SongID TEXT,                       -- Primary track ID
+                                      SongID2 TEXT                       -- Candidate similar track ID
                                   );
                               """;
 
@@ -88,6 +95,7 @@ namespace Spotify_Playlist_Manager.Models
             EnsureColumnExists(conn, "Playlists", "ImagePath");
             EnsureColumnExists(conn, "Albums", "ImagePath");
             EnsureColumnExists(conn, "Artists", "ImagePath");
+            EnsureColumnExists(conn, "Similar", "Type");
         }
 
 
@@ -102,6 +110,26 @@ namespace Spotify_Playlist_Manager.Models
                 cmd.CommandText = "INSERT OR REPLACE INTO Settings (Key, Value) VALUES ($key, $value);";
                 cmd.Parameters.AddWithValue("$key", key);
                 cmd.Parameters.AddWithValue("$value", value);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
+        }
+
+        public static async Task RemoveSetting(string key)
+        {
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "DELETE FROM Settings WHERE Key = $key;";
+                cmd.Parameters.AddWithValue("$key", key);
+
                 await cmd.ExecuteNonQueryAsync();
             }
             finally
@@ -158,6 +186,26 @@ namespace Spotify_Playlist_Manager.Models
                 cmd.Parameters.AddWithValue("$description", playlist.Description ?? string.Empty);
                 cmd.Parameters.AddWithValue("$snapshotId", playlist.SnapshotID ?? string.Empty);
                 cmd.Parameters.AddWithValue("$trackIds", playlist.TrackIDs ?? string.Empty);
+
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
+        }
+
+        public static async Task RemovePlaylist(string playlistId)
+        {
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "DELETE FROM Playlists WHERE Id = $id;";
+                cmd.Parameters.AddWithValue("$id", playlistId);
 
                 await cmd.ExecuteNonQueryAsync();
             }
@@ -237,6 +285,26 @@ namespace Spotify_Playlist_Manager.Models
                 cmd.Parameters.AddWithValue("$imageUrl", album.ImageURL ?? string.Empty);
                 cmd.Parameters.AddWithValue("$imagePath", album.ImagePath ?? string.Empty);
                 cmd.Parameters.AddWithValue("$artistIds", album.ArtistIDs ?? string.Empty);
+
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
+        }
+
+        public static async Task RemoveAlbum(string albumId)
+        {
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "DELETE FROM Albums WHERE Id = $id;";
+                cmd.Parameters.AddWithValue("$id", albumId);
 
                 await cmd.ExecuteNonQueryAsync();
             }
@@ -352,6 +420,26 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        public static async Task RemoveTrack(string trackId)
+        {
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "DELETE FROM Tracks WHERE Id = $id;";
+                cmd.Parameters.AddWithValue("$id", trackId);
+
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
+        }
+
         public static Variables.Track GetTrack(string id)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -391,6 +479,25 @@ namespace Spotify_Playlist_Manager.Models
             }
 
             return null; // No result found
+        }
+
+        public static int GetTrackCountBySongId(string songId)
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM Tracks WHERE SongID = $songId;";
+            cmd.Parameters.AddWithValue("$songId", songId);
+
+            object? result = cmd.ExecuteScalar();
+
+            return result switch
+            {
+                long longCount => (int)longCount,
+                int intCount => intCount,
+                _ => 0
+            };
         }
 
         public static IEnumerable<Variables.Track> GetAllTracks()
@@ -437,6 +544,26 @@ namespace Spotify_Playlist_Manager.Models
                 cmd.Parameters.AddWithValue("$imageUrl", artist.ImageURL ?? string.Empty);
                 cmd.Parameters.AddWithValue("$imagePath", artist.ImagePath ?? string.Empty);
                 cmd.Parameters.AddWithValue("$genres", artist.Genres ?? string.Empty);
+
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
+        }
+
+        public static async Task RemoveArtist(string artistId)
+        {
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "DELETE FROM Artists WHERE Id = $id;";
+                cmd.Parameters.AddWithValue("$id", artistId);
 
                 await cmd.ExecuteNonQueryAsync();
             }
@@ -521,7 +648,7 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
-        public static async Task SetSimilar(string songId, string songId2)
+        public static async Task SetSimilar(string songId, string songId2, string type)
         {
             await DbWriteLock.WaitAsync();
             try
@@ -530,7 +657,96 @@ namespace Spotify_Playlist_Manager.Models
                 await conn.OpenAsync();
 
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO Similar (SongID, SongID2) VALUES ($songId, $songId2);";
+                cmd.CommandText = @"INSERT OR REPLACE INTO Similar (SongID, SongID2, Type) VALUES ($songId, $songId2, $type);";
+
+                cmd.Parameters.AddWithValue("$songId", songId);
+                cmd.Parameters.AddWithValue("$songId2", songId2);
+                cmd.Parameters.AddWithValue("$type", type);
+
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
+        }
+
+        public static async Task RemoveSimilar(string songId, string songId2, string type)
+        {
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "DELETE FROM Similar WHERE SongID = $songId AND SongID2 = $songId2 AND Type = $type;";
+                cmd.Parameters.AddWithValue("$songId", songId);
+                cmd.Parameters.AddWithValue("$songId2", songId2);
+                cmd.Parameters.AddWithValue("$type", type);
+
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
+        }
+
+        public static (string SongId, string SongId2, string Type)? GetSimilar(string songId, string songId2)
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT SongID, SongID2, Type FROM Similar WHERE SongID = $songId AND SongID2 = $songId2 LIMIT 1;";
+            cmd.Parameters.AddWithValue("$songId", songId);
+            cmd.Parameters.AddWithValue("$songId2", songId2);
+
+            using var reader = cmd.ExecuteReader();
+
+            if (reader.Read())
+            {
+                return (
+                    reader["SongID"]?.ToString() ?? string.Empty,
+                    reader["SongID2"]?.ToString() ?? string.Empty,
+                    reader["Type"]?.ToString() ?? string.Empty
+                );
+            }
+
+            return null;
+        }
+
+        public static IEnumerable<(string SongId, string SongId2, string Type)> GetAllSimilar()
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT SongID, SongID2, Type FROM Similar;";
+
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                yield return (
+                    reader["SongID"]?.ToString() ?? string.Empty,
+                    reader["SongID2"]?.ToString() ?? string.Empty,
+                    reader["Type"]?.ToString() ?? string.Empty
+                );
+            }
+        }
+
+        public static async Task SetMightBeSimilar(string songId, string songId2)
+        {
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"INSERT OR REPLACE INTO MightBeSimilar (SongID, SongID2) VALUES ($songId, $songId2);";
 
                 cmd.Parameters.AddWithValue("$songId", songId);
                 cmd.Parameters.AddWithValue("$songId2", songId2);
@@ -543,13 +759,34 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
-        public static (string SongId, string SongId2)? GetSimilar(string songId, string songId2)
+        public static async Task RemoveMightBeSimilar(string songId, string songId2)
+        {
+            await DbWriteLock.WaitAsync();
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={_dbPath}");
+                await conn.OpenAsync();
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "DELETE FROM MightBeSimilar WHERE SongID = $songId AND SongID2 = $songId2;";
+                cmd.Parameters.AddWithValue("$songId", songId);
+                cmd.Parameters.AddWithValue("$songId2", songId2);
+
+                await cmd.ExecuteNonQueryAsync();
+            }
+            finally
+            {
+                DbWriteLock.Release();
+            }
+        }
+
+        public static (string SongId, string SongId2)? GetMightBeSimilar(string songId, string songId2)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT SongID, SongID2 FROM Similar WHERE SongID = $songId AND SongID2 = $songId2 LIMIT 1;";
+            cmd.CommandText = "SELECT SongID, SongID2 FROM MightBeSimilar WHERE SongID = $songId AND SongID2 = $songId2 LIMIT 1;";
             cmd.Parameters.AddWithValue("$songId", songId);
             cmd.Parameters.AddWithValue("$songId2", songId2);
 
@@ -566,13 +803,13 @@ namespace Spotify_Playlist_Manager.Models
             return null;
         }
 
-        public static IEnumerable<(string SongId, string SongId2)> GetAllSimilar()
+        public static IEnumerable<(string SongId, string SongId2)> GetAllMightBeSimilar()
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
             conn.Open();
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT SongID, SongID2 FROM Similar;";
+            cmd.CommandText = "SELECT SongID, SongID2 FROM MightBeSimilar;";
 
             using var reader = cmd.ExecuteReader();
 

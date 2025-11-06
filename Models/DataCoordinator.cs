@@ -45,6 +45,14 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        private static void EnsureValidSongIdentifier(string? songId, string paramName)
+        {
+            if (string.IsNullOrWhiteSpace(songId))
+            {
+                throw new ArgumentException("A valid song identifier is required.", paramName);
+            }
+        }
+
         public static async Task SetSettingAsync(string key, string value)
         {
             if (string.IsNullOrWhiteSpace(key))
@@ -53,6 +61,16 @@ namespace Spotify_Playlist_Manager.Models
             }
 
             await DatabaseWorker.SetSetting(key, value);
+        }
+
+        public static async Task RemoveSettingAsync(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                throw new ArgumentException("A valid setting key is required.", nameof(key));
+            }
+
+            await DatabaseWorker.RemoveSetting(key);
         }
 
         public static string? GetSetting(string key)
@@ -84,6 +102,13 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.SetPlaylist(playlist);
         }
 
+        public static async Task RemovePlaylistAsync(string playlistId)
+        {
+            EnsureValidId(playlistId, nameof(playlistId));
+
+            await DatabaseWorker.RemovePlaylist(playlistId);
+        }
+
         public static Variables.PlayList? GetPlaylist(string playlistId)
         {
             EnsureValidId(playlistId, nameof(playlistId));
@@ -111,6 +136,13 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.SetAlbum(album);
         }
 
+        public static async Task RemoveAlbumAsync(string albumId)
+        {
+            EnsureValidId(albumId, nameof(albumId));
+
+            await DatabaseWorker.RemoveAlbum(albumId);
+        }
+
         public static Variables.Album? GetAlbum(string albumId)
         {
             EnsureValidId(albumId, nameof(albumId));
@@ -134,6 +166,13 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.SetTrack(track);
         }
 
+        public static async Task RemoveTrackAsync(string trackId)
+        {
+            EnsureValidId(trackId, nameof(trackId));
+
+            await DatabaseWorker.RemoveTrack(trackId);
+        }
+
         public static Variables.Track GetTrack(string trackId)
         {
             EnsureValidId(trackId, nameof(trackId));
@@ -144,6 +183,13 @@ namespace Spotify_Playlist_Manager.Models
         public static IEnumerable<Variables.Track> GetAllTracks()
         {
             return DatabaseWorker.GetAllTracks();
+        }
+
+        public static int GetTrackCountBySongId(string songId)
+        {
+            EnsureValidSongIdentifier(songId, nameof(songId));
+
+            return DatabaseWorker.GetTrackCountBySongId(songId);
         }
 
         public static async Task SetArtistAsync(Variables.Artist artist)
@@ -160,6 +206,13 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.SetArtist(artist);
         }
 
+        public static async Task RemoveArtistAsync(string artistId)
+        {
+            EnsureValidId(artistId, nameof(artistId));
+
+            await DatabaseWorker.RemoveArtist(artistId);
+        }
+
         public static Variables.Artist? GetArtist(string artistId)
         {
             EnsureValidId(artistId, nameof(artistId));
@@ -172,24 +225,70 @@ namespace Spotify_Playlist_Manager.Models
             return DatabaseWorker.GetAllArtists();
         }
 
-        public static async Task SetSimilarAsync(string songId, string songId2)
+        public static async Task SetSimilarAsync(string songId, string songId2, string type)
         {
-            EnsureValidId(songId, nameof(songId));
-            EnsureValidId(songId2, nameof(songId2));
-            await DatabaseWorker.SetSimilar(songId, songId2);
+            EnsureValidSongIdentifier(songId, nameof(songId));
+            EnsureValidSongIdentifier(songId2, nameof(songId2));
+            if (string.IsNullOrWhiteSpace(type))
+            {
+                throw new ArgumentException("A valid similarity type is required.", nameof(type));
+            }
+
+            await DatabaseWorker.SetSimilar(songId, songId2, type);
         }
 
-        public static (string SongId, string SongId2)? GetSimilar(string songId, string songId2)
+        public static async Task RemoveSimilarAsync(string songId, string songId2, string type)
         {
-            EnsureValidId(songId, nameof(songId));
-            EnsureValidId(songId2, nameof(songId2));
+            EnsureValidSongIdentifier(songId, nameof(songId));
+            EnsureValidSongIdentifier(songId2, nameof(songId2));
+            if (string.IsNullOrWhiteSpace(type))
+            {
+                throw new ArgumentException("A valid similarity type is required.", nameof(type));
+            }
+
+            await DatabaseWorker.RemoveSimilar(songId, songId2, type);
+        }
+
+        public static (string SongId, string SongId2, string Type)? GetSimilar(string songId, string songId2)
+        {
+            EnsureValidSongIdentifier(songId, nameof(songId));
+            EnsureValidSongIdentifier(songId2, nameof(songId2));
 
             return DatabaseWorker.GetSimilar(songId, songId2);
         }
 
-        public static IEnumerable<(string SongId, string SongId2)> GetAllSimilar()
+        public static IEnumerable<(string SongId, string SongId2, string Type)> GetAllSimilar()
         {
             return DatabaseWorker.GetAllSimilar();
+        }
+
+        public static async Task SetMightBeSimilarAsync(string songId, string songId2)
+        {
+            EnsureValidSongIdentifier(songId, nameof(songId));
+            EnsureValidSongIdentifier(songId2, nameof(songId2));
+
+            await DatabaseWorker.SetMightBeSimilar(songId, songId2);
+        }
+
+        public static async Task RemoveMightBeSimilarAsync(string songId, string songId2)
+        {
+            EnsureValidSongIdentifier(songId, nameof(songId));
+            EnsureValidSongIdentifier(songId2, nameof(songId2));
+
+            await DatabaseWorker.RemoveMightBeSimilar(songId, songId2);
+        }
+
+        public static (string SongId, string SongId2)? GetMightBeSimilar(string songId, string songId2)
+        {
+            EnsureValidSongIdentifier(songId, nameof(songId));
+            EnsureValidSongIdentifier(songId2, nameof(songId2));
+
+            return DatabaseWorker.GetMightBeSimilar(songId, songId2);
+        }
+
+        public static IEnumerable<(string SongId, string SongId2)> GetAllMightBeSimilar()
+        {
+            return DatabaseWorker.GetAllMightBeSimilar();
         }
 
         public static async Task SlowSync()
