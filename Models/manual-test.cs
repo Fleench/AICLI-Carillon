@@ -69,11 +69,11 @@ public class TempProgram
         FileHelper.ModifySpecificLine(myFile, 1, clientSecret);
         FileHelper.ModifySpecificLine(myFile, 2, at);
         FileHelper.ModifySpecificLine(myFile, 3, rt);
-        await DataCoordinator.SetSettingAsync(Variables.Settings.SW_ClientToken,clientID);
-        await DataCoordinator.SetSettingAsync(Variables.Settings.SW_RefreshToken,refreshToken);
+        await DataCoordinator.SetSettingAsync(Variables.Settings.SW_ClientToken, clientID);
+        await DataCoordinator.SetSettingAsync(Variables.Settings.SW_RefreshToken, refreshToken);
         await DataCoordinator.SetSettingAsync(Variables.Settings.SW_AccessToken, at);
         await DataCoordinator.SetSettingAsync(Variables.Settings.SW_ClientSecret, clientSecret);
-        
+
         Console.WriteLine("YO WE DONE with AUTHENTICATED!");
         string data = "data.txt";
         //Get the first playlist, its first song, that songs album and artist, and save the IDs.
@@ -108,15 +108,15 @@ public class TempProgram
         var tracksWithDuplicateSongIds = allTracks
             // Group the items based on the non-unique identifier: SongId
             .GroupBy(item => item.SongID)
-        
+
             // Filter the groups: keep only the ones that have 2 or more tracks associated with that SongId
             .Where(group => group.Count() >= 2)
-        
+
             // <--- THIS IS THE LINE YOU CHANGE --->
             // Use SelectMany to flatten the remaining groups back into a single list of tracks.
             // It takes all the individual Track items within the qualifying groups.
             .SelectMany(group => group)
-        
+
             // Convert the final result back to a List<Variables.Track>
             .ToList();
         foreach (var track in tracksWithDuplicateSongIds)
@@ -131,10 +131,11 @@ public class TempProgram
                     artist_string += artist_item.Name + ",";
                 }
             }
+
             Console.WriteLine($"{track.Name} - {artist_string}");
         }
-        
-    }
+
+}
 
     public static async Task<(string playlistID, string trackID, string albumID, string artistID)> Getabitofdata()
     {
