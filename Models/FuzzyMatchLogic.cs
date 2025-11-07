@@ -17,18 +17,39 @@ namespace Spotify_Playlist_Manager.Models
         {
             SameTracks.Clear();
             var tracks = DataCoordinator.GetAllTracks();
+            HashSet<Variables.Track> CheckedTracks = new ();
             foreach (var MainTrack in tracks)
             {
+                if (CheckedTracks.Contains(MainTrack))
+                {
+                    continue;
+                }
                 foreach (var OtherTrack in tracks)
                 {
+                    double score = 0;
+                    
                     if (MainTrack.Name.Equals(OtherTrack.Name) && MainTrack.ArtistIds.Equals(OtherTrack.ArtistIds) && 
-                        !MainTrack.Id.Equals(OtherTrack.Id) && MainTrack is not null && OtherTrack is not null)
+                        !MainTrack.Id.Equals(OtherTrack.Id))
+                    {
+                        score = 1;
+                    }
+                    else
+                    {
+                        score = ScoreSong(MainTrack, OtherTrack);
+                    }
+
+                    if (score >= 0.75)
                     {
                         Variables.Track temptrack = OtherTrack;
                         temptrack.SongID = MainTrack.SongID;
                         SameTracks.Add(temptrack);
                     }
+                    else if (score >= 0.45)
+                    {
+                        DataCoordinator.SetMightBeSimilarAsync(MainTrack.SongID, OtherTrack.SongID);
+                    }
                 }
+                CheckedTracks.Add(MainTrack);
             }
 
             foreach (var track in SameTracks)
@@ -76,6 +97,11 @@ namespace Spotify_Playlist_Manager.Models
             {
                 score = 1;
             }
+            //do they have the same PreviewURL
+            if (track1.PreviewUrl.Equals(track2.PreviewUrl))
+            {
+                score = 1;
+            }
             //do they share an album
             if (track1.AlbumId.Equals(track2.AlbumId))
             {
@@ -84,43 +110,45 @@ namespace Spotify_Playlist_Manager.Models
             //do they share artists
             if (track1.ArtistIds.Equals(track2.ArtistIds))
             {
-                score += 0.1;
+                score += 0.25;
             }
-
-            foreach (var t1 in t1Artists)
+            else
             {
-                if (t2Artists.Contains(t1))
+                foreach (var t1 in t1Artists)
                 {
-                    score += 0.1;
+                    if (t2Artists.Contains(t1))
+                    {
+                        score += 0.1;
+                    }
                 }
             }
 
+            //same disc
             if (track1.DiscNumber.Equals(track2.DiscNumber))
             {
                 score += 0.05;
             }
-
+            //same length
             if (track1.DurationMs.Equals(track2.DurationMs))
             {
                 score += 0.05;
             }
-
+            //share explicit
             if (track1.Explicit.Equals(track2.Explicit))
             {
                 score += 0.05;
             }
-
-            if (track1.PreviewUrl.Equals(track2.PreviewUrl))
-            {
-                score = 1;
-            }
-
+            //same spot in album
             if (track1.TrackNumber.Equals(track2.TrackNumber))
             {
                 score += 0.05;
             }
-
-            if (track1.Name.Contains(track2.Name) || track2.Name.Contains(track1.Name))
+            //do they have similar names
+            if (track1.Name.StartsWith(track2.Name) || track2.Name.StartsWith(track1.Name))
+            {
+                score += .5;
+            }
+            else if (track1.Name.Contains(track2.Name) || track2.Name.Contains(track1.Name))
             {
                 score += .3;
             }
