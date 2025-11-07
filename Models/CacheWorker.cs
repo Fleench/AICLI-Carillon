@@ -8,9 +8,24 @@
     using System.Threading.Tasks;
     namespace Spotify_Playlist_Manager.Models
     {
+        /// <summary>
+        /// Centralized helper responsible for downloading, storing, and looking
+        /// up cached artwork for playlists, albums, and artists. The worker hides
+        /// file-system exceptions so callers can treat missing artwork as an
+        /// expected condition rather than an error state.
+        /// </summary>
         public static class CacheWorker
         {
             public static string Cachepath = Variables.CachePath;
+
+            /// <summary>
+            /// Downloads an image from Spotify and stores it in the cache folder
+            /// using a deterministic naming convention (<c>{type}_{id}.{ext}</c>).
+            /// </summary>
+            /// <param name="url">Remote image URL provided by Spotify.</param>
+            /// <param name="type">The logical item type the image belongs to.</param>
+            /// <param name="itemId">Unique identifier for the owning item.</param>
+            /// <returns>The local file path when successful; otherwise <c>null</c>.</returns>
             public static async Task<string?> DownloadImageAsync(string url, ImageType type, string itemId)
             {
                 if (string.IsNullOrWhiteSpace(url))
@@ -63,10 +78,15 @@
                     return null;
                 }
             }
+            /// <summary>
+            /// Derives a stable file extension from the MIME type header provided
+            /// by Spotify. Falls back to <c>.bin</c> for unknown types so the cache
+            /// still works even when Spotify adds new content types.
+            /// </summary>
             private static string GetFileExtensionFromMimeType(string mimeType)
             {
                 // Convert to lowercase for case-insensitive comparison
-                mimeType = mimeType.ToLowerInvariant(); 
+                mimeType = mimeType.ToLowerInvariant();
 
                 // Handle the common image types for Spotify
                 if (mimeType.Contains("image/jpeg"))
@@ -85,6 +105,9 @@
                 // Fallback: If the type is unknown, use a generic binary extension or skip
                 return ".bin"; 
             }
+            /// <summary>
+            /// Logical categories of images that can be cached.
+            /// </summary>
             public enum ImageType
             {
                 Artist,
@@ -92,6 +115,13 @@
                 Playlist,
             }
 
+            /// <summary>
+            /// Attempts to find a cached image based on the deterministic naming
+            /// scheme used by <see cref="DownloadImageAsync"/>.
+            /// </summary>
+            /// <param name="type">Item category to search for.</param>
+            /// <param name="itemId">Unique identifier associated with the image.</param>
+            /// <returns>The cached image path if found; otherwise <c>null</c>.</returns>
             public static string? GetImagePath(ImageType type, string itemId)
             {
                 try
