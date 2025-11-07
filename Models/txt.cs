@@ -1,5 +1,5 @@
 /* File: text.cs
- * Author: Gemmeni Pro 2.5
+ * Author: Gemmeni Pro 2.5, ChatGPT Codex
  * Description: This is an AI genereted debug module to quickly save data for testing.
  * It is not designed to be used in production. Nor should it be used as a permanent solution.
  */

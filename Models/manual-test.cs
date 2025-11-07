@@ -1,5 +1,5 @@
 /* File: manual-test.cs
- * Author: Glenn Sutherland
+ * Author: Glenn Sutherland, ChatGPT Codex
  * Description: Manual testing for the Spotify Playlist Manager. This allows
  * for the modules to tested for before they are stringed together.
  */
@@ -15,6 +15,11 @@ using Spotify_Playlist_Manager.Models;
 using System.Collections.Concurrent;
 using System.Threading;
 
+/// <summary>
+/// Stand-alone console entry point intended for smoke-testing the workers
+/// without launching the Avalonia front end. Keep the file excluded from
+/// release builds; it serves only as a diagnostic harness.
+/// </summary>
 public class TempProgram
 {
     static async Task Main(string[] args)
@@ -86,7 +91,7 @@ public class TempProgram
         IEnumerable<string> list = new[] { st };
         FileHelper.CreateOrOverwriteFile(data, list);
         FileHelper.ModifySpecificLine(data, 1, st);*/
-        Console.WriteLine("Sync Started");
+        Console.WriteLine("Sync Started"); // Provide a simple progress heartbeat.
         var timerTask = Task.Run(async () =>
         {
             int seconds = 0;
@@ -105,6 +110,8 @@ public class TempProgram
         var allTracks = DataCoordinator.GetAllTracks();
 
         // 2. Process the tracks using LINQ
+        // Build a list of tracks that share the same SongID so we can inspect
+        // duplicates created by older synchronization runs.
         var tracksWithDuplicateSongIds = allTracks
             // Group the items based on the non-unique identifier: SongId
             .GroupBy(item => item.SongID)

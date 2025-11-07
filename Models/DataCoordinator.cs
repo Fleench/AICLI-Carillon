@@ -22,6 +22,12 @@ namespace Spotify_Playlist_Manager.Models
         ArtistMetadata = 5
     }
 
+    /// <summary>
+    /// High-level orchestrator that synchronizes Spotify data with the local
+    /// SQLite cache. The coordinator translates worker responses into
+    /// <see cref="Variables"/> models and delegates persistence to
+    /// <see cref="DatabaseWorker"/>.
+    /// </summary>
     static class DataCoordinator
     {
         private static readonly TimeSpan RateLimitRetryThreshold = TimeSpan.FromMinutes(2);
@@ -53,6 +59,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Writes a settings key/value pair to the database.
+        /// </summary>
         public static async Task SetSettingAsync(string key, string value)
         {
             if (string.IsNullOrWhiteSpace(key))
@@ -63,6 +72,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.SetSetting(key, value);
         }
 
+        /// <summary>
+        /// Deletes the specified settings key.
+        /// </summary>
         public static async Task RemoveSettingAsync(string key)
         {
             if (string.IsNullOrWhiteSpace(key))
@@ -73,6 +85,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.RemoveSetting(key);
         }
 
+        /// <summary>
+        /// Retrieves a settings value or <c>null</c> when the key does not exist.
+        /// </summary>
         public static string? GetSetting(string key)
         {
             if (string.IsNullOrWhiteSpace(key))
@@ -83,11 +98,17 @@ namespace Spotify_Playlist_Manager.Models
             return DatabaseWorker.GetSetting(key);
         }
 
+        /// <summary>
+        /// Enumerates all persisted settings.
+        /// </summary>
         public static IEnumerable<(string key, string value)> GetAllSettings()
         {
             return DatabaseWorker.GetAllSettings();
         }
 
+        /// <summary>
+        /// Adds or updates a playlist, caching its artwork when necessary.
+        /// </summary>
         public static async Task SetPlaylistAsync(Variables.PlayList playlist)
         {
             ArgumentNullException.ThrowIfNull(playlist);
@@ -102,6 +123,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.SetPlaylist(playlist);
         }
 
+        /// <summary>
+        /// Removes a playlist by identifier.
+        /// </summary>
         public static async Task RemovePlaylistAsync(string playlistId)
         {
             EnsureValidId(playlistId, nameof(playlistId));
@@ -109,6 +133,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.RemovePlaylist(playlistId);
         }
 
+        /// <summary>
+        /// Retrieves a playlist from the local cache.
+        /// </summary>
         public static Variables.PlayList? GetPlaylist(string playlistId)
         {
             EnsureValidId(playlistId, nameof(playlistId));
@@ -116,11 +143,18 @@ namespace Spotify_Playlist_Manager.Models
             return DatabaseWorker.GetPlaylist(playlistId);
         }
 
+        /// <summary>
+        /// Enumerates all cached playlists.
+        /// </summary>
         public static IEnumerable<Variables.PlayList> GetAllPlaylists()
         {
             return DatabaseWorker.GetAllPlaylists();
         }
 
+        /// <summary>
+        /// Adds or updates an album, caching associated artwork and normalizing
+        /// artist identifiers.
+        /// </summary>
         public static async Task SetAlbumAsync(Variables.Album album)
         {
             ArgumentNullException.ThrowIfNull(album);
@@ -136,6 +170,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.SetAlbum(album);
         }
 
+        /// <summary>
+        /// Removes an album by identifier.
+        /// </summary>
         public static async Task RemoveAlbumAsync(string albumId)
         {
             EnsureValidId(albumId, nameof(albumId));
@@ -143,6 +180,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.RemoveAlbum(albumId);
         }
 
+        /// <summary>
+        /// Retrieves an album from the cache.
+        /// </summary>
         public static Variables.Album? GetAlbum(string albumId)
         {
             EnsureValidId(albumId, nameof(albumId));
@@ -150,11 +190,17 @@ namespace Spotify_Playlist_Manager.Models
             return DatabaseWorker.GetAlbum(albumId);
         }
 
+        /// <summary>
+        /// Enumerates every cached album.
+        /// </summary>
         public static IEnumerable<Variables.Album> GetAllAlbums()
         {
             return DatabaseWorker.GetAllAlbums();
         }
 
+        /// <summary>
+        /// Adds or updates a track and normalizes artist identifiers.
+        /// </summary>
         public static async Task SetTrackAsync(Variables.Track track)
         {
             ArgumentNullException.ThrowIfNull(track);
@@ -166,6 +212,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.SetTrack(track);
         }
 
+        /// <summary>
+        /// Removes a track by Spotify ID.
+        /// </summary>
         public static async Task RemoveTrackAsync(string trackId)
         {
             EnsureValidId(trackId, nameof(trackId));
@@ -173,6 +222,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.RemoveTrack(trackId);
         }
 
+        /// <summary>
+        /// Retrieves a track from the cache.
+        /// </summary>
         public static Variables.Track GetTrack(string trackId)
         {
             EnsureValidId(trackId, nameof(trackId));
@@ -180,11 +232,17 @@ namespace Spotify_Playlist_Manager.Models
             return DatabaseWorker.GetTrack(trackId);
         }
 
+        /// <summary>
+        /// Enumerates all cached tracks.
+        /// </summary>
         public static IEnumerable<Variables.Track> GetAllTracks()
         {
             return DatabaseWorker.GetAllTracks();
         }
 
+        /// <summary>
+        /// Counts how many tracks share the same internal song identifier.
+        /// </summary>
         public static int GetTrackCountBySongId(string songId)
         {
             EnsureValidSongIdentifier(songId, nameof(songId));
@@ -192,6 +250,9 @@ namespace Spotify_Playlist_Manager.Models
             return DatabaseWorker.GetTrackCountBySongId(songId);
         }
 
+        /// <summary>
+        /// Adds or updates an artist and caches the artist's artwork.
+        /// </summary>
         public static async Task SetArtistAsync(Variables.Artist artist)
         {
             ArgumentNullException.ThrowIfNull(artist);
@@ -206,6 +267,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.SetArtist(artist);
         }
 
+        /// <summary>
+        /// Removes an artist by identifier.
+        /// </summary>
         public static async Task RemoveArtistAsync(string artistId)
         {
             EnsureValidId(artistId, nameof(artistId));
@@ -213,6 +277,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.RemoveArtist(artistId);
         }
 
+        /// <summary>
+        /// Retrieves an artist from the cache.
+        /// </summary>
         public static Variables.Artist? GetArtist(string artistId)
         {
             EnsureValidId(artistId, nameof(artistId));
@@ -220,11 +287,17 @@ namespace Spotify_Playlist_Manager.Models
             return DatabaseWorker.GetArtist(artistId);
         }
 
+        /// <summary>
+        /// Enumerates all cached artists.
+        /// </summary>
         public static IEnumerable<Variables.Artist> GetAllArtists()
         {
             return DatabaseWorker.GetAllArtists();
         }
 
+        /// <summary>
+        /// Persists a similarity relationship between two tracks.
+        /// </summary>
         public static async Task SetSimilarAsync(string songId, string songId2, string type)
         {
             EnsureValidSongIdentifier(songId, nameof(songId));
@@ -237,6 +310,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.SetSimilar(songId, songId2, type);
         }
 
+        /// <summary>
+        /// Removes a similarity relationship.
+        /// </summary>
         public static async Task RemoveSimilarAsync(string songId, string songId2, string type)
         {
             EnsureValidSongIdentifier(songId, nameof(songId));
@@ -249,6 +325,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.RemoveSimilar(songId, songId2, type);
         }
 
+        /// <summary>
+        /// Retrieves a similarity relationship when it exists.
+        /// </summary>
         public static (string SongId, string SongId2, string Type)? GetSimilar(string songId, string songId2)
         {
             EnsureValidSongIdentifier(songId, nameof(songId));
@@ -257,11 +336,17 @@ namespace Spotify_Playlist_Manager.Models
             return DatabaseWorker.GetSimilar(songId, songId2);
         }
 
+        /// <summary>
+        /// Enumerates all similarity relationships.
+        /// </summary>
         public static IEnumerable<(string SongId, string SongId2, string Type)> GetAllSimilar()
         {
             return DatabaseWorker.GetAllSimilar();
         }
 
+        /// <summary>
+        /// Records a potential similarity for later review.
+        /// </summary>
         public static async Task SetMightBeSimilarAsync(string songId, string songId2)
         {
             EnsureValidSongIdentifier(songId, nameof(songId));
@@ -270,6 +355,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.SetMightBeSimilar(songId, songId2);
         }
 
+        /// <summary>
+        /// Removes a potential similarity entry.
+        /// </summary>
         public static async Task RemoveMightBeSimilarAsync(string songId, string songId2)
         {
             EnsureValidSongIdentifier(songId, nameof(songId));
@@ -278,6 +366,9 @@ namespace Spotify_Playlist_Manager.Models
             await DatabaseWorker.RemoveMightBeSimilar(songId, songId2);
         }
 
+        /// <summary>
+        /// Retrieves a potential similarity entry.
+        /// </summary>
         public static (string SongId, string SongId2)? GetMightBeSimilar(string songId, string songId2)
         {
             EnsureValidSongIdentifier(songId, nameof(songId));
@@ -286,11 +377,18 @@ namespace Spotify_Playlist_Manager.Models
             return DatabaseWorker.GetMightBeSimilar(songId, songId2);
         }
 
+        /// <summary>
+        /// Enumerates all potential similarity entries.
+        /// </summary>
         public static IEnumerable<(string SongId, string SongId2)> GetAllMightBeSimilar()
         {
             return DatabaseWorker.GetAllMightBeSimilar();
         }
 
+        /// <summary>
+        /// Legacy synchronization pipeline kept for reference. It performs the
+        /// full synchronization flow without retry logic or batching optimizations.
+        /// </summary>
         public static async Task SlowSync()
         {
             /* Playlists → Playlist Tracks
@@ -450,6 +548,10 @@ namespace Spotify_Playlist_Manager.Models
             Console.WriteLine("Got Artist Data");
         }
 
+        /// <summary>
+        /// Executes the modern synchronization pipeline starting from the
+        /// provided <paramref name="startFrom"/> checkpoint.
+        /// </summary>
         public static async Task Sync(SyncEntryPoint startFrom = SyncEntryPoint.Playlists)
         {
             if (startFrom <= SyncEntryPoint.Playlists)

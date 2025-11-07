@@ -1,3 +1,8 @@
+/* File: ThemeLogic.cs
+ * Author: Glenn Sutherland, ChatGPT Codex
+ * Description: Generates light and dark theme palettes from a base surface color.
+ */
+
 using System;
 using System.Globalization;
 using Avalonia.Media;
@@ -7,10 +12,17 @@ namespace Spotify_Playlist_Manager.Models
 {
     public enum ThemeMode { Light, Dark }
 
+    /// <summary>
+    /// Encapsulates theme generation and swapping logic. Given a seed color the
+    /// class can produce cohesive light and dark palettes for the Avalonia UI.
+    /// </summary>
     public class Theme
     {
         public ThemeMode ActiveMode { get; private set; }
 
+        /// <summary>
+        /// Gets the color palette for the currently active <see cref="ThemeMode"/>.
+        /// </summary>
         public ThemeColors Colors => ActiveMode == ThemeMode.Dark ? DarkColors : LightColors;
         public ThemeColors DarkColors { get; private set; }
         public ThemeColors LightColors { get; private set; }
@@ -144,6 +156,9 @@ namespace Spotify_Playlist_Manager.Models
         private const string AnsiReset = "\u001b[0m";
     }
 
+    /// <summary>
+    /// Represents a complete palette generated for a specific theme mode.
+    /// </summary>
     public struct ThemeColors
     {
         public string Surface { get; set; }

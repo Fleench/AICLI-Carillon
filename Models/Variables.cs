@@ -41,6 +41,9 @@ namespace Spotify_Playlist_Manager.Models
             Console.WriteLine(DatabasePath);
         }
 
+        /// <summary>
+        /// Represents a Spotify playlist hydrated by the synchronization pipeline.
+        /// </summary>
         public class PlayList
         {
             public string Name;
@@ -67,7 +70,21 @@ namespace Spotify_Playlist_Manager.Models
 
                 return false;
             }
+
+            /// <summary>
+            /// Creates a shallow copy of the playlist so callers can mutate the
+            /// duplicate without affecting the original reference tracked by the
+            /// cache or database layers.
+            /// </summary>
+            /// <returns>A new <see cref="PlayList"/> instance with the same field values.</returns>
+            public PlayList Copy()
+            {
+                return (PlayList)MemberwiseClone();
+            }
         }
+        /// <summary>
+        /// Represents a Spotify album and the identifiers required to hydrate it.
+        /// </summary>
         public class Album
         {
             public string Name;
@@ -93,8 +110,22 @@ namespace Spotify_Playlist_Manager.Models
 
                 return false;
             }
+
+            /// <summary>
+            /// Creates a shallow copy of the album so that callers can adjust
+            /// values such as <see cref="ImagePath"/> without mutating the original
+            /// instance owned by the data layer.
+            /// </summary>
+            /// <returns>A cloned <see cref="Album"/> instance.</returns>
+            public Album Copy()
+            {
+                return (Album)MemberwiseClone();
+            }
         }
 
+        /// <summary>
+        /// Represents a Spotify track, including metadata used by matching logic.
+        /// </summary>
         public class Track
         {
             public string Name;
@@ -110,7 +141,7 @@ namespace Spotify_Playlist_Manager.Models
 
             public Track()
             {
-                
+
                     SongID = Variables.MakeId();
             }
 
@@ -150,8 +181,22 @@ namespace Spotify_Playlist_Manager.Models
             {
                 return MissingInfo();
             }
+
+            /// <summary>
+            /// Creates a shallow copy of the track. This preserves the generated
+            /// <see cref="SongID"/> value while allowing mutation of the duplicate
+            /// for scenarios like fuzzy matching or batch updates.
+            /// </summary>
+            /// <returns>A cloned <see cref="Track"/> instance.</returns>
+            public Track Copy()
+            {
+                return (Track)MemberwiseClone();
+            }
         }
 
+        /// <summary>
+        /// Represents a Spotify artist and their associated metadata.
+        /// </summary>
         public class Artist
         {
             public string Name;
@@ -173,6 +218,17 @@ namespace Spotify_Playlist_Manager.Models
                 }
 
                 return false;
+            }
+
+            /// <summary>
+            /// Creates a shallow copy of the artist record so UI code can adjust
+            /// presentation-specific fields such as <see cref="ImagePath"/> without
+            /// altering the canonical database instance.
+            /// </summary>
+            /// <returns>A cloned <see cref="Artist"/> instance.</returns>
+            public Artist Copy()
+            {
+                return (Artist)MemberwiseClone();
             }
         }
         public static class Settings

@@ -10,12 +10,22 @@ using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 namespace Spotify_Playlist_Manager.Models
 {
-    
+
+    /// <summary>
+    /// Thin wrapper around the SQLite database used by the playlist manager.
+    /// Every public method either reads from or writes to the local cache while
+    /// ensuring that concurrent write operations are serialized through a
+    /// <see cref="SemaphoreSlim"/>.
+    /// </summary>
     public static class DatabaseWorker
     {
         private static string _dbPath = Variables.DatabasePath;
         private static readonly SemaphoreSlim DbWriteLock = new(1, 1);
 
+        /// <summary>
+        /// Initializes the SQLite schema and ensures columns added in later
+        /// versions exist before any access occurs.
+        /// </summary>
         public static void Init()
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -99,6 +109,10 @@ namespace Spotify_Playlist_Manager.Models
         }
 
 
+        /// <summary>
+        /// Inserts or updates a setting entry. Settings are lightweight key/value
+        /// pairs used to store Spotify credentials and miscellaneous toggles.
+        /// </summary>
         public static async Task SetSetting(string key, string value)
         {
             await DbWriteLock.WaitAsync();
@@ -118,6 +132,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Deletes the specified setting key from the Settings table.
+        /// </summary>
         public static async Task RemoveSetting(string key)
         {
             await DbWriteLock.WaitAsync();
@@ -138,6 +155,10 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Retrieves a single setting value. Returns <c>null</c> when the key is
+        /// not present.
+        /// </summary>
         public static string? GetSetting(string key)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -148,6 +169,9 @@ namespace Spotify_Playlist_Manager.Models
             return cmd.ExecuteScalar() as string;
         }
 
+        /// <summary>
+        /// Enumerates every stored setting key/value pair.
+        /// </summary>
         public static IEnumerable<(string key, string value)> GetAllSettings()
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -167,6 +191,10 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Adds or updates a playlist record. All string fields are normalized to
+        /// empty strings to avoid <c>null</c> persistence issues.
+        /// </summary>
         public static async Task SetPlaylist(Variables.PlayList playlist)
         {
             await DbWriteLock.WaitAsync();
@@ -195,6 +223,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Removes a playlist and its metadata from the cache.
+        /// </summary>
         public static async Task RemovePlaylist(string playlistId)
         {
             await DbWriteLock.WaitAsync();
@@ -215,6 +246,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Fetches a playlist by Spotify identifier.
+        /// </summary>
         public static Variables.PlayList? GetPlaylist(string id)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -243,6 +277,9 @@ namespace Spotify_Playlist_Manager.Models
             return null;
         }
 
+        /// <summary>
+        /// Enumerates every playlist stored locally.
+        /// </summary>
         public static IEnumerable<Variables.PlayList> GetAllPlaylists()
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -268,6 +305,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Adds or updates an album record in the Albums table.
+        /// </summary>
         public static async Task SetAlbum(Variables.Album album)
         {
             await DbWriteLock.WaitAsync();
@@ -294,6 +334,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Removes an album from the cache by identifier.
+        /// </summary>
         public static async Task RemoveAlbum(string albumId)
         {
             await DbWriteLock.WaitAsync();
@@ -314,6 +357,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Retrieves a single album along with its cached track ID list.
+        /// </summary>
         public static Variables.Album? GetAlbum(string id)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -343,6 +389,9 @@ namespace Spotify_Playlist_Manager.Models
             return null;
         }
 
+        /// <summary>
+        /// Enumerates all albums, supplementing each row with its track ID list.
+        /// </summary>
         public static IEnumerable<Variables.Album> GetAllAlbums()
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -389,6 +438,9 @@ namespace Spotify_Playlist_Manager.Models
             return string.Join(Variables.Seperator, trackIds);
         }
 
+        /// <summary>
+        /// Adds or updates a track entry in the Tracks table.
+        /// </summary>
         public static async Task SetTrack(Variables.Track track)
         {
             await DbWriteLock.WaitAsync();
@@ -420,6 +472,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Removes a track entry by Spotify ID.
+        /// </summary>
         public static async Task RemoveTrack(string trackId)
         {
             await DbWriteLock.WaitAsync();
@@ -440,6 +495,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Fetches a track by Spotify identifier or internal song identifier.
+        /// </summary>
         public static Variables.Track GetTrack(string id)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -481,6 +539,9 @@ namespace Spotify_Playlist_Manager.Models
             return null; // No result found
         }
 
+        /// <summary>
+        /// Counts how many tracks share the supplied internal SongID.
+        /// </summary>
         public static int GetTrackCountBySongId(string songId)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -500,6 +561,9 @@ namespace Spotify_Playlist_Manager.Models
             };
         }
 
+        /// <summary>
+        /// Enumerates every track stored in the Tracks table.
+        /// </summary>
         public static IEnumerable<Variables.Track> GetAllTracks()
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -527,6 +591,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Adds or updates an artist record in the Artists table.
+        /// </summary>
         public static async Task SetArtist(Variables.Artist artist)
         {
             await DbWriteLock.WaitAsync();
@@ -553,6 +620,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Removes an artist entry by identifier.
+        /// </summary>
         public static async Task RemoveArtist(string artistId)
         {
             await DbWriteLock.WaitAsync();
@@ -573,6 +643,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Retrieves a specific artist record when present.
+        /// </summary>
         public static Variables.Artist? GetArtist(string id)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -599,6 +672,9 @@ namespace Spotify_Playlist_Manager.Models
             return null;
         }
 
+        /// <summary>
+        /// Enumerates all cached artist records.
+        /// </summary>
         public static IEnumerable<Variables.Artist> GetAllArtists()
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -648,6 +724,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Records that two tracks are similar according to a specific strategy.
+        /// </summary>
         public static async Task SetSimilar(string songId, string songId2, string type)
         {
             await DbWriteLock.WaitAsync();
@@ -671,6 +750,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Deletes a previously recorded similarity relationship.
+        /// </summary>
         public static async Task RemoveSimilar(string songId, string songId2, string type)
         {
             await DbWriteLock.WaitAsync();
@@ -693,6 +775,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Retrieves a similarity relationship between two song IDs when stored.
+        /// </summary>
         public static (string SongId, string SongId2, string Type)? GetSimilar(string songId, string songId2)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -717,6 +802,9 @@ namespace Spotify_Playlist_Manager.Models
             return null;
         }
 
+        /// <summary>
+        /// Enumerates all similarity relationships recorded in the database.
+        /// </summary>
         public static IEnumerable<(string SongId, string SongId2, string Type)> GetAllSimilar()
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -737,6 +825,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Marks two tracks as potential matches pending manual review.
+        /// </summary>
         public static async Task SetMightBeSimilar(string songId, string songId2)
         {
             await DbWriteLock.WaitAsync();
@@ -759,6 +850,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Removes a potential match entry once it has been resolved.
+        /// </summary>
         public static async Task RemoveMightBeSimilar(string songId, string songId2)
         {
             await DbWriteLock.WaitAsync();
@@ -780,6 +874,9 @@ namespace Spotify_Playlist_Manager.Models
             }
         }
 
+        /// <summary>
+        /// Retrieves a potential match pair when it exists.
+        /// </summary>
         public static (string SongId, string SongId2)? GetMightBeSimilar(string songId, string songId2)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -803,6 +900,9 @@ namespace Spotify_Playlist_Manager.Models
             return null;
         }
 
+        /// <summary>
+        /// Enumerates all potential match pairs still awaiting user confirmation.
+        /// </summary>
         public static IEnumerable<(string SongId, string SongId2)> GetAllMightBeSimilar()
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
