@@ -114,6 +114,16 @@ namespace Spotify_Playlist_Manager.Models
             {
                 score = 1;
             }
+
+            if (track1.TrackNumber.Equals(track2.TrackNumber))
+            {
+                score += 0.05;
+            }
+
+            if (track1.Name.Contains(track2.Name) || track2.Name.Contains(track1.Name))
+            {
+                score += .3;
+            }
             return score;
         }
     }
