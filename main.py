@@ -67,6 +67,29 @@ def script(API: dict) -> None:
     playlist_map: Dict[str, Dict[str, str]] = {}
     spotify_queue: Dict[str, List[str]] = {} # Batching: { playlist_id: [track_ids] }
 
+    def fetch_playlist_track_ids(playlist_id: str) -> Set[str]:
+        track_ids: Set[str] = set()
+        offset = 0
+        limit = 100
+
+        while True:
+            response = spotify.sp.playlist_items(
+                playlist_id,
+                fields="items(track(id)),next",
+                offset=offset,
+                limit=limit,
+            )
+            for item in response.get("items", []):
+                track = item.get("track")
+                if track and track.get("id"):
+                    track_ids.add(track["id"])
+
+            if not response.get("next"):
+                break
+            offset += limit
+
+        return track_ids
+
     print("\n[Init] Loading Playlist Names...")
     
     # 2. Build Lookup Table
@@ -92,6 +115,14 @@ def script(API: dict) -> None:
 
     # 3. Load processed tracks to skip
     processed_tracks: Set[str] = set()
+    playlist_track_ids: Set[str] = set()
+
+    print("\n[Init] Loading existing playlist tracks to skip...")
+    for pid in target_playlist_ids:
+        try:
+            playlist_track_ids.update(fetch_playlist_track_ids(pid))
+        except Exception as e:
+            print(f"[Error] Fetching tracks for {pid}: {e}")
 
     print("\n[Stream] Fetching ALL songs to shuffle (this might take a moment)...")
     all_songs = []
@@ -113,7 +144,7 @@ def script(API: dict) -> None:
                 print("[Error] No active playback device. Start Spotify on a device and try again.")
                 return
 
-            if song['id'] in processed_tracks:
+            if song['id'] in processed_tracks or song['id'] in playlist_track_ids:
                 continue
 
             print(f"\n>> PLAYING: {song['name']} - {song['artists']}")
