@@ -18,8 +18,8 @@ class DatabaseConfig:
     """Configuration for locating the shared SQLite database."""
 
     app_name: str = "SpotifyPlaylistManager"
-    app_author: str = "Fleench"
-    db_filename: str = "music.db"
+    app_author: str = ""
+    db_filename: str = "data.db"
 
 
 class DatabaseWorker:
