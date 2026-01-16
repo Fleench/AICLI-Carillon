@@ -21,7 +21,7 @@ namespace Spotify_Playlist_Manager.Models
     /// refreshes, client reuse, and configuration stay consistent across the
     /// application.
     /// </summary>
-    static class SpotifyWorker
+    public static class SpotifyWorker
     {
         private static string ClientID;
         private static string ClientSecret;
