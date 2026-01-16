@@ -21,15 +21,17 @@ namespace Spotify_Playlist_Manager
             DatabaseWorker.Init();
             SpotifyWorker.Init();
             await SpotifyWorker.AuthenticateAsync();
+            await DataCoordinator.Sync();
 
             var playlistLookup = BuildPlaylistLookup();
             if (playlistLookup.Count == 0)
             {
-                Console.WriteLine("No playlists are available for triage. Run a sync to load the target playlist into the local database.");
+                Console.WriteLine("No playlists are available for triage. Update PlaylistIds in CliRunner.cs and ensure they are synced into the local database.");
                 return;
             }
 
             var playlistTrackIds = BuildPlaylistTrackIndex(playlistLookup);
+            var playlistKeyMap = BuildPlaylistKeyMap(playlistLookup);
 
             await foreach (var song in SpotifyWorker.GetLikedSongsAsync())
             {
@@ -53,28 +55,30 @@ namespace Spotify_Playlist_Manager
 
                 Console.WriteLine();
                 Console.WriteLine("Controls:");
-                foreach (var playlist in playlistLookup.Values)
+                Console.WriteLine("Configure playlist IDs in CliRunner.PlaylistIds.");
+                foreach (var entry in playlistKeyMap)
                 {
-                    Console.WriteLine($"Playlist: {playlist.Name} ({playlist.Id})");
+                    var playlist = entry.Value;
+                    Console.WriteLine($"Press {entry.Key} to add to {playlist.Name} ({playlist.Id})");
                 }
 
-                Console.WriteLine("Enter a playlist ID to add the track, press Enter to skip, or type q to quit.");
+                Console.WriteLine("Press the key for a playlist, press Enter to skip, or press Q to quit.");
 
                 while (true)
                 {
-                    string? input = Console.ReadLine();
+                    var keyInfo = Console.ReadKey(true);
 
-                    if (string.Equals(input, "q", StringComparison.OrdinalIgnoreCase))
+                    if (keyInfo.Key == ConsoleKey.Q)
                     {
                         return;
                     }
 
-                    if (string.IsNullOrWhiteSpace(input))
+                    if (keyInfo.Key == ConsoleKey.Enter)
                     {
                         break;
                     }
 
-                    if (playlistLookup.TryGetValue(input.Trim(), out var selection))
+                    if (playlistKeyMap.TryGetValue(keyInfo.Key, out var selection))
                     {
                         Console.WriteLine($"Selected: {selection.Name} ({selection.Id})");
                         await SpotifyWorker.AddTracksToPlaylistAsync(selection.Id, new List<string> { song.Id });
@@ -82,7 +86,7 @@ namespace Spotify_Playlist_Manager
                         break;
                     }
 
-                    Console.WriteLine("Unknown playlist ID. Enter a valid playlist ID, press Enter to skip, or type q to quit.");
+                    Console.WriteLine("Unknown playlist key. Press a listed key, press Enter to skip, or press Q to quit.");
                 }
             }
         }
@@ -109,6 +113,51 @@ namespace Spotify_Playlist_Manager
             }
 
             return lookup;
+        }
+
+        private static Dictionary<ConsoleKey, Variables.PlayList> BuildPlaylistKeyMap(Dictionary<string, Variables.PlayList> playlistLookup)
+        {
+            var map = new Dictionary<ConsoleKey, Variables.PlayList>();
+            var availableKeys = BuildAvailablePlaylistKeys();
+            var index = 0;
+
+            foreach (var playlist in playlistLookup.Values)
+            {
+                if (index >= availableKeys.Count)
+                {
+                    Console.WriteLine("Not enough keys to map all playlists. Remove extra playlist IDs or extend key mapping.");
+                    break;
+                }
+
+                map[availableKeys[index]] = playlist;
+                index++;
+            }
+
+            return map;
+        }
+
+        private static List<ConsoleKey> BuildAvailablePlaylistKeys()
+        {
+            var keys = new List<ConsoleKey>
+            {
+                ConsoleKey.D1,
+                ConsoleKey.D2,
+                ConsoleKey.D3,
+                ConsoleKey.D4,
+                ConsoleKey.D5,
+                ConsoleKey.D6,
+                ConsoleKey.D7,
+                ConsoleKey.D8,
+                ConsoleKey.D9,
+                ConsoleKey.D0
+            };
+
+            for (var key = ConsoleKey.A; key <= ConsoleKey.Z; key++)
+            {
+                keys.Add(key);
+            }
+
+            return keys;
         }
 
         private static HashSet<string> BuildPlaylistTrackIndex(Dictionary<string, Variables.PlayList> playlistLookup)
