@@ -106,8 +106,13 @@ def script(API: dict) -> None:
     print(f"[Stream] Shuffled {len(all_songs)} songs.")
 
     try:
+        spotify.set_shuffle(False)
         # Loop through SHUFFLED songs
         for song in all_songs:
+            if not spotify.has_active_playback():
+                print("[Error] No active playback device. Start Spotify on a device and try again.")
+                return
+
             if song['id'] in processed_tracks:
                 continue
 
