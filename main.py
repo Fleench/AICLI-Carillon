@@ -4,6 +4,8 @@ from __future__ import annotations
 
 __author__ = "ChatGPT Codex"
 
+import random
+
 from carillon.database_worker import *
 from carillon.spotify_worker import SpotifyWorker
 from embed_term import readchar
@@ -26,12 +28,7 @@ def db_sync(API: dict) -> None:
     """
     db: DatabaseWorker = API["db"]
     spotify: SpotifyWorker = API["spotify"]
-
-    print("\n[Sync] Updating local database from Spotify...")
-    # Placeholder: In a full implementation, this would fetch current playlists
-    # and saved tracks to ensure the local SQLite DB matches Spotify.
-    # For now, we assume the DB is ready or this updates the 'sorted' table.
-    print("[Sync] Complete.")
+    db.sync_from_spotify(spotify)
 
 
 def script(API: dict) -> None:
