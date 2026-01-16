@@ -267,8 +267,10 @@ namespace Spotify_Playlist_Manager.Models
 
         /// <summary>
         /// Starts playback of the supplied track on the currently active device.
+        /// Returns a tuple describing whether playback started successfully and
+        /// a message callers can surface to the user when it fails.
         /// </summary>
-        public static async Task PlayTrack(string trackId)
+        public static async Task<(bool Success, string Message)> PlayTrack(string trackId)
         {
             if (string.IsNullOrWhiteSpace(trackId))
             {
@@ -284,11 +286,18 @@ namespace Spotify_Playlist_Manager.Models
                 };
 
                 await spotify.Player.ResumePlayback(request);
+                return (true, "Playback started.");
             }
-            catch (Exception)
+            catch (APIException apiException)
             {
-                // Spotify throws if there is no active device. We simply skip
-                // playback in that case and let the CLI continue.
+                var reason = apiException.Message;
+                var guidance = "Ensure you have an active Spotify device, are logged in with a Premium account, and try starting playback on a device before continuing.";
+                return (false, $"Playback failed: {reason}. {guidance}");
+            }
+            catch (Exception ex)
+            {
+                var guidance = "Ensure you have an active Spotify device, are logged in with a Premium account, and try starting playback on a device before continuing.";
+                return (false, $"Playback failed: {ex.Message}. {guidance}");
             }
         }
 
