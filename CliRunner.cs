@@ -12,7 +12,18 @@ namespace Spotify_Playlist_Manager
     {
         private static readonly string[] PlaylistIds =
         {
-            "2KjzmceL3Ql46eG3Bnc0gY"
+            "65392yUXSa7CibP88Sn08A",
+"1ARRU77hkx4OTyw9bXdddx",
+"6eNBczFcPGUHmJgIcJht3n",
+"14vSWI3bnHGdHwZzYvQFAA",
+"7B6PFPO2coL4eHBZV5ERzo",
+"23svSBQEKD9JLSGiBu6x11",
+"26pTF75NRXl5MHibLHYgx7",
+"6obxnggDmfxDBD0PyR83qq",
+"5qpWnHFhrdZJFasqvUkYnL",
+"79NBBzBTMmTnxS52yF6sQS",
+"1P6uaRXoH3oUGKZlG57OTB",
+"252nMBfkL56QMavLz0Pz5Q"
         };
 
         public static async System.Threading.Tasks.Task Run()
