@@ -1,15 +1,21 @@
-﻿using Avalonia;
+/* File: Program.cs
+ * Author: ChatGPT Codex
+ * Description: Console entry point for the headless Spotify sorter.
+ */
 using System;
 
 namespace Spotify_Playlist_Manager;
 
 sealed class Program
 {
-    // Initialization code. Don't use any Avalonia, third-party APIs or any
-    // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
-    // yet and stuff might break.
     [STAThread]
-    //FIX LATER
+    public static void Main(string[] args)
+    {
+        CliRunner.Run().GetAwaiter().GetResult();
+    }
+
+    /*
+    // Original Avalonia UI startup code (disabled for headless CLI runs).
     public static void nMain(string[] args) => BuildAvaloniaApp()
         .StartWithClassicDesktopLifetime(args);
 
@@ -19,4 +25,5 @@ sealed class Program
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace();
+    */
 }

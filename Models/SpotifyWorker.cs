@@ -66,6 +66,20 @@ namespace Spotify_Playlist_Manager.Models
         }
 
         /// <summary>
+        /// Initializes the worker using cached credentials stored in the local
+        /// settings database.
+        /// </summary>
+        public static void Init()
+        {
+            string clientId = DataCoordinator.GetSetting(Variables.Settings.SW_ClientToken) ?? string.Empty;
+            string clientSecret = DataCoordinator.GetSetting(Variables.Settings.SW_ClientSecret) ?? string.Empty;
+            string accessToken = DataCoordinator.GetSetting(Variables.Settings.SW_AccessToken) ?? string.Empty;
+            string refreshToken = DataCoordinator.GetSetting(Variables.Settings.SW_RefreshToken) ?? string.Empty;
+
+            Init(clientId, clientSecret, accessToken, refreshToken);
+        }
+
+        /// <summary>
         /// Performs the full OAuth flow if the current session is missing
         /// tokens. When tokens are already present it simply ensures that the
         /// underlying client is ready to use. The method returns a tuple with
@@ -198,6 +212,7 @@ namespace Spotify_Playlist_Manager.Models
                     Scopes.PlaylistReadPrivate,
                     Scopes.UserLibraryRead,
                     Scopes.UserLibraryModify,
+                    Scopes.UserModifyPlaybackState,
                     Scopes.UserReadPrivate
                 }
             };
@@ -247,6 +262,33 @@ namespace Spotify_Playlist_Manager.Models
                     // worker which swallowed such errors.
                     break;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Starts playback of the supplied track on the currently active device.
+        /// </summary>
+        public static async Task PlayTrack(string trackId)
+        {
+            if (string.IsNullOrWhiteSpace(trackId))
+            {
+                throw new ArgumentException("A valid track ID must be provided.", nameof(trackId));
+            }
+
+            try
+            {
+                var spotify = await SpotifySession.Instance.GetClientAsync();
+                var request = new PlayerResumePlaybackRequest
+                {
+                    Uris = new List<string> { $"spotify:track:{trackId}" }
+                };
+
+                await spotify.Player.ResumePlayback(request);
+            }
+            catch (Exception)
+            {
+                // Spotify throws if there is no active device. We simply skip
+                // playback in that case and let the CLI continue.
             }
         }
 
