@@ -116,7 +116,21 @@ namespace Spotify_Playlist_Manager.Models
             }
 
             var snapshot = session.GetTokenSnapshot();
+            await PersistTokensAsync(snapshot.AccessToken, snapshot.RefreshToken);
             return (snapshot.AccessToken, snapshot.RefreshToken);
+        }
+
+        private static async Task PersistTokensAsync(string accessToken, string refreshToken)
+        {
+            if (!string.IsNullOrWhiteSpace(accessToken))
+            {
+                await DataCoordinator.SetSettingAsync(Variables.Settings.SW_AccessToken, accessToken);
+            }
+
+            if (!string.IsNullOrWhiteSpace(refreshToken))
+            {
+                await DataCoordinator.SetSettingAsync(Variables.Settings.SW_RefreshToken, refreshToken);
+            }
         }
 
         /// <summary>

@@ -32,8 +32,10 @@ namespace Spotify_Playlist_Manager
 
             var playlistTrackIds = BuildPlaylistTrackIndex(playlistLookup);
             var playlistKeyMap = BuildPlaylistKeyMap(playlistLookup);
+            var likedSongs = await LoadLikedSongsAsync();
+            ShuffleLikedSongs(likedSongs);
 
-            await foreach (var song in SpotifyWorker.GetLikedSongsAsync())
+            foreach (var song in likedSongs)
             {
                 if (playlistTrackIds.Contains(song.Id))
                 {
@@ -88,6 +90,27 @@ namespace Spotify_Playlist_Manager
 
                     Console.WriteLine("Unknown playlist key. Press a listed key, press Enter to skip, or press Q to quit.");
                 }
+            }
+        }
+
+        private static async System.Threading.Tasks.Task<List<(string Id, string Name, string Artists)>> LoadLikedSongsAsync()
+        {
+            var likedSongs = new List<(string Id, string Name, string Artists)>();
+
+            await foreach (var song in SpotifyWorker.GetLikedSongsAsync())
+            {
+                likedSongs.Add(song);
+            }
+
+            return likedSongs;
+        }
+
+        private static void ShuffleLikedSongs(List<(string Id, string Name, string Artists)> likedSongs)
+        {
+            for (var i = likedSongs.Count - 1; i > 0; i--)
+            {
+                var swapIndex = Variables.RNG.Next(i + 1);
+                (likedSongs[i], likedSongs[swapIndex]) = (likedSongs[swapIndex], likedSongs[i]);
             }
         }
 
