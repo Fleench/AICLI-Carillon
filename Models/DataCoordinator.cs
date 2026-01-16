@@ -28,7 +28,7 @@ namespace Spotify_Playlist_Manager.Models
     /// <see cref="Variables"/> models and delegates persistence to
     /// <see cref="DatabaseWorker"/>.
     /// </summary>
-    static class DataCoordinator
+    public static class DataCoordinator
     {
         private static readonly TimeSpan RateLimitRetryThreshold = TimeSpan.FromMinutes(2);
         private static readonly TimeSpan MinimumRetryDelay = TimeSpan.FromSeconds(1);
@@ -918,4 +918,3 @@ namespace Spotify_Playlist_Manager.Models
         }
     }
 }
-
