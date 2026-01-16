@@ -114,6 +114,32 @@ class SpotifyWorker:
         except spotipy.SpotifyException as e:
             print(f"Playback Error: {e}")
 
+    def set_shuffle(self, state: bool) -> None:
+        """Sets the shuffle state on the active device."""
+        if not self.sp:
+            raise ConnectionError("Not authenticated.")
+
+        try:
+            self.sp.shuffle(state)
+        except spotipy.SpotifyException as e:
+            print(f"Shuffle Error: {e}")
+
+    def has_active_playback(self) -> bool:
+        """Returns True if there is an active playback device currently playing."""
+        if not self.sp:
+            raise ConnectionError("Not authenticated.")
+
+        try:
+            playback = self.sp.current_playback()
+        except spotipy.SpotifyException as e:
+            print(f"Playback Status Error: {e}")
+            return False
+
+        if not playback:
+            return False
+
+        return bool(playback.get("is_playing"))
+
     def add_to_playlist(self, playlist_id: str, track_id: str) -> None:
         """Adds a track to a playlist."""
         if not self.sp:
